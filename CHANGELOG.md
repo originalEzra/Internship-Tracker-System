@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-06-10 - Backend Test Milestone
+
+### Added
+
+- `UserServiceTest` for user registration, duplicate checks, login, password updates, and account deletion.
+- `InternshipServiceTest` for current-user scoped internship access, update, and delete behavior.
+- `JwtUtilTest` for token generation, validation, and userId extraction.
+- `JwtAuthenticationFilterTest` for verifying that valid tokens populate `SecurityContextHolder`.
+- `UserControllerTest` for user API response structure and exception mapping.
+
+### Verified
+
+- `./mvnw test` passes.
+- 23 backend tests run successfully with 0 failures.
+
 ## 2026-06-10
 
 Authentication and user-scoped internship milestone.
@@ -56,7 +71,6 @@ Authentication and user-scoped internship milestone.
 
 ## Next Planned Milestones
 
-- Add JUnit and Spring Boot integration tests.
 - Add Flyway migrations.
 - Add pagination, filtering, and sorting for internship lists.
 - Add production-ready configuration profiles.

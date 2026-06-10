@@ -35,6 +35,7 @@ Implemented:
 - Global exception handling
 - 401 response for unauthenticated requests
 - Apifox regression collection covering the full login and internship flow
+- JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
 
 ## Authentication Flow
 
@@ -171,6 +172,14 @@ Run compile/tests:
 ./mvnw test
 ```
 
+Current backend test coverage includes:
+
+- `UserServiceTest`: registration, duplicate users, login, password update, account deletion
+- `InternshipServiceTest`: current-user scoped internship CRUD
+- `JwtUtilTest`: JWT generation, validation, and userId extraction
+- `JwtAuthenticationFilterTest`: SecurityContext authentication setup
+- `UserControllerTest`: user endpoint responses and exception mapping
+
 ## Apifox Regression Tests
 
 The importable collection is here:
@@ -218,7 +227,6 @@ The collection covers:
 
 ## Next Improvements
 
-- Add JUnit service and controller integration tests.
 - Add Flyway database migrations.
 - Add pagination, filtering, and sorting for internships.
 - Add `updatedAt` fields.
