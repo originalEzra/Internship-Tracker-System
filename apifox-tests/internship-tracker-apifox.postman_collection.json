@@ -1,0 +1,911 @@
+{
+  "info": {
+    "name": "Internship Tracker Regression Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Regression test flow for register, login, current user, password update, internship ownership, and auth errors."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "newToken",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "internshipId",
+      "value": ""
+    },
+    {
+      "key": "userAUsername",
+      "value": ""
+    },
+    {
+      "key": "userAEmail",
+      "value": ""
+    },
+    {
+      "key": "userAPassword",
+      "value": "Password123"
+    },
+    {
+      "key": "userANewUsername",
+      "value": ""
+    },
+    {
+      "key": "userANewEmail",
+      "value": ""
+    },
+    {
+      "key": "userANewPassword",
+      "value": "NewPassword123"
+    },
+    {
+      "key": "userBUsername",
+      "value": ""
+    },
+    {
+      "key": "userBEmail",
+      "value": ""
+    },
+    {
+      "key": "userBPassword",
+      "value": "Password123"
+    },
+    {
+      "key": "userBToken",
+      "value": ""
+    },
+    {
+      "key": "cleanupToken",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "00 Initialize Test Data",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('initialize wrapper request succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "});",
+              "const runId = Date.now().toString();",
+              "pm.collectionVariables.set('runId', runId);",
+              "pm.collectionVariables.set('token', '');",
+              "pm.collectionVariables.set('newToken', '');",
+              "pm.collectionVariables.set('userId', '');",
+              "pm.collectionVariables.set('internshipId', '');",
+              "pm.collectionVariables.set('userBToken', '');",
+              "pm.collectionVariables.set('userAUsername', 'apifox_user_a_' + runId);",
+              "pm.collectionVariables.set('userAEmail', 'apifox_user_a_' + runId + '@example.com');",
+              "pm.collectionVariables.set('userANewUsername', 'apifox_user_a_updated_' + runId);",
+              "pm.collectionVariables.set('userANewEmail', 'apifox_user_a_updated_' + runId + '@example.com');",
+              "pm.collectionVariables.set('userBUsername', 'apifox_user_b_' + runId);",
+              "pm.collectionVariables.set('userBEmail', 'apifox_user_b_' + runId + '@example.com');",
+              "console.log('initialized Apifox runId:', runId);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/health"
+      }
+    },
+    {
+      "name": "01 Register User A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{userAUsername}}\",\n  \"email\": \"{{userAEmail}}\",\n  \"password\": \"{{userAPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('register user A success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.username).to.eql(pm.collectionVariables.get('userAUsername'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 Login User A",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{userAUsername}}\",\n  \"password\": \"{{userAPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('login user A success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.token).to.be.a('string');",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "  pm.collectionVariables.set('userId', json.data.user.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Get Current User",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('get current user success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('userId')));",
+              "  pm.expect(json.data.username).to.eql(pm.collectionVariables.get('userAUsername'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Update Current User",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{userANewUsername}}\",\n  \"email\": \"{{userANewEmail}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('update current user success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.username).to.eql(pm.collectionVariables.get('userANewUsername'));",
+              "  pm.expect(json.data.email).to.eql(pm.collectionVariables.get('userANewEmail'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Get Current User After Update",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('old token still works after username update', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('userId')));",
+              "  pm.expect(json.data.username).to.eql(pm.collectionVariables.get('userANewUsername'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Change Password",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me/password",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"oldPassword\": \"{{userAPassword}}\",\n  \"newPassword\": \"{{userANewPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('change password success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.message).to.eql('Password updated');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Login Old Password Should Fail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('authorized wrapper request succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.sendRequest({",
+              "  url: pm.collectionVariables.get('baseUrl') + '/api/users/login',",
+              "  method: 'POST',",
+              "  header: { 'Content-Type': 'application/json' },",
+              "  body: {",
+              "    mode: 'raw',",
+              "    raw: JSON.stringify({",
+              "      username: pm.collectionVariables.get('userANewUsername'),",
+              "      password: pm.collectionVariables.get('userAPassword')",
+              "    })",
+              "  }",
+              "}, function (err, res) {",
+              "  pm.test('old password login fails with 401', function () {",
+              "    pm.expect(err).to.eql(null);",
+              "    pm.expect(res.code).to.eql(401);",
+              "    pm.expect(res.json().code).to.eql(401);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Login New Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{userANewUsername}}\",\n  \"password\": \"{{userANewPassword}}\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('new password login succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.collectionVariables.set('newToken', json.data.token);",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Create Internship",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"Apifox Company\",\n  \"position\": \"Backend Intern\",\n  \"location\": \"Sydney\",\n  \"status\": \"Applied\",\n  \"applicationUrl\": \"https://example.com/job\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('create internship success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.be.a('number');",
+              "  pm.expect(json.data.userId).to.eql(undefined);",
+              "  pm.collectionVariables.set('internshipId', json.data.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Get My Internships",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('get my internships contains created internship', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  const internshipId = Number(pm.collectionVariables.get('internshipId'));",
+              "  const found = json.data.some(item => item.id === internshipId);",
+              "  pm.expect(found).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 Find Internship By Id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships/{{internshipId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('find own internship by id success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('internshipId')));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Update Own Internship",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships/{{internshipId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"Interview\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('update own internship success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('internshipId')));",
+              "  pm.expect(json.data.company).to.eql('Apifox Company Updated');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Delete Own Internship",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships/{{internshipId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('delete own internship success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Find Deleted Internship Should Return 404",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('authorized wrapper request succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.sendRequest({",
+              "  url: pm.collectionVariables.get('baseUrl') + '/api/internships/' + pm.collectionVariables.get('internshipId'),",
+              "  method: 'GET',",
+              "  header: { Authorization: 'Bearer ' + pm.collectionVariables.get('token') }",
+              "}, function (err, res) {",
+              "  pm.test('deleted internship cannot be found with 404', function () {",
+              "    pm.expect(err).to.eql(null);",
+              "    pm.expect(res.code).to.eql(404);",
+              "    pm.expect(res.json().code).to.eql(404);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 No Token Should Return 401",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('authorized wrapper request succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.sendRequest({",
+              "  url: pm.collectionVariables.get('baseUrl') + '/api/users/me',",
+              "  method: 'GET'",
+              "}, function (err, res) {",
+              "  pm.test('no token returns 401', function () {",
+              "    pm.expect(err).to.eql(null);",
+              "    pm.expect(res.code).to.eql(401);",
+              "    pm.expect(res.json().code).to.eql(401);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Duplicate Register Should Return 400",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('authorized wrapper request succeeds', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.sendRequest({",
+              "  url: pm.collectionVariables.get('baseUrl') + '/api/users',",
+              "  method: 'POST',",
+              "  header: { 'Content-Type': 'application/json' },",
+              "  body: {",
+              "    mode: 'raw',",
+              "    raw: JSON.stringify({",
+              "      username: pm.collectionVariables.get('userANewUsername'),",
+              "      email: pm.collectionVariables.get('userANewEmail'),",
+              "      password: pm.collectionVariables.get('userANewPassword')",
+              "    })",
+              "  }",
+              "}, function (err, res) {",
+              "  pm.test('duplicate register returns 400', function () {",
+              "    pm.expect(err).to.eql(null);",
+              "    pm.expect(res.code).to.eql(400);",
+              "    pm.expect(res.json().code).to.eql(400);",
+              "  });",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Cross-user Internship Isolation",
+      "item": [
+        {
+          "name": "17.1 Create Internship As User A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/internships",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"User A Private Company\",\n  \"position\": \"Private Internship\",\n  \"location\": \"Sydney\",\n  \"status\": \"Applied\",\n  \"applicationUrl\": \"https://example.com/private\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('create private internship as user A', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('internshipId', json.data.id);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17.2 Register User B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{userBUsername}}\",\n  \"email\": \"{{userBEmail}}\",\n  \"password\": \"{{userBPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('register user B success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17.3 Login User B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/users/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{userBUsername}}\",\n  \"password\": \"{{userBPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login user B success', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.collectionVariables.set('userBToken', json.data.token);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17.4 User B Finds User A Internship",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userBToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/users/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('user B wrapper request succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.sendRequest({",
+                  "  url: pm.collectionVariables.get('baseUrl') + '/api/internships/' + pm.collectionVariables.get('internshipId'),",
+                  "  method: 'GET',",
+                  "  header: { Authorization: 'Bearer ' + pm.collectionVariables.get('userBToken') }",
+                  "}, function (err, res) {",
+                  "  pm.test('user B cannot find user A internship with 404', function () {",
+                  "    pm.expect(err).to.eql(null);",
+                  "    pm.expect(res.code).to.eql(404);",
+                  "    pm.expect(res.json().code).to.eql(404);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17.5 User B Updates User A Internship",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{userBToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/users/me"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('user B wrapper request succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.sendRequest({",
+                  "  url: pm.collectionVariables.get('baseUrl') + '/api/internships/' + pm.collectionVariables.get('internshipId'),",
+                  "  method: 'PUT',",
+                  "  header: {",
+                  "    Authorization: 'Bearer ' + pm.collectionVariables.get('userBToken'),",
+                  "    'Content-Type': 'application/json'",
+                  "  },",
+                  "  body: {",
+                  "    mode: 'raw',",
+                  "    raw: JSON.stringify({",
+                  "      company: 'Should Not Update',",
+                  "      position: 'Should Not Update',",
+                  "      location: 'Sydney',",
+                  "      status: 'Applied',",
+                  "      applicationUrl: 'https://example.com/blocked'",
+                  "    })",
+                  "  }",
+                  "}, function (err, res) {",
+                  "  pm.test('user B cannot update user A internship with 404', function () {",
+                  "    pm.expect(err).to.eql(null);",
+                  "    pm.expect(res.code).to.eql(404);",
+                  "    pm.expect(res.json().code).to.eql(404);",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18 Delete Current User",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/users/me"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('delete current user success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "});",
+              "const userBToken = pm.collectionVariables.get('userBToken');",
+              "if (userBToken) {",
+              "  pm.sendRequest({",
+              "    url: pm.collectionVariables.get('baseUrl') + '/api/users/me',",
+              "    method: 'DELETE',",
+              "    header: { Authorization: 'Bearer ' + userBToken }",
+              "  }, function (err, res) {",
+              "    pm.test('cleanup user B after isolation test', function () {",
+              "      pm.expect(err).to.eql(null);",
+              "      pm.expect([200, 404]).to.include(res.code);",
+              "    });",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
