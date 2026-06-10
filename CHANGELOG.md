@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-06-10 - Configuration Profile Milestone
+
+### Added
+
+- `application-dev.properties` for local MySQL development settings.
+- `application-test.properties` for test-focused settings.
+- `JwtProperties` to bind JWT configuration through `@ConfigurationProperties`.
+- `JwtPropertiesTest` to verify JWT property binding.
+
+### Changed
+
+- Simplified `application.properties` so it only keeps common shared configuration.
+- Replaced scattered JWT `@Value` injection with centralized `JwtProperties`.
+- Updated README with profile usage and environment variable tables.
+
+### Verified
+
+- `./mvnw test` passes.
+- 24 backend tests run successfully with 0 failures.
+
 ## 2026-06-10 - Backend Test Milestone
 
 ### Added

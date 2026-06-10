@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JwtAuthenticationFilterTest {
 
     private final JwtUtil jwtUtil =
-            new JwtUtil("test-secret-key-with-at-least-32-bytes", 3_600_000L);
+            new JwtUtil(jwtProperties());
 
     private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtUtil);
 
@@ -56,5 +56,12 @@ class JwtAuthenticationFilterTest {
         filter.doFilter(request, response, new MockFilterChain());
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    private JwtProperties jwtProperties() {
+        JwtProperties jwtProperties = new JwtProperties();
+        jwtProperties.setSecret("test-secret-key-with-at-least-32-bytes");
+        jwtProperties.setExpirationMs(3_600_000L);
+        return jwtProperties;
     }
 }

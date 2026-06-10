@@ -36,6 +36,7 @@ Implemented:
 - 401 response for unauthenticated requests
 - Apifox regression collection covering the full login and internship flow
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
+- Environment-based configuration with Spring profiles for development and testing
 
 ## Authentication Flow
 
@@ -142,6 +143,40 @@ Error response:
 | created_at | Creation time |
 | user_id | Foreign key to users.id |
 
+## Configuration
+
+The project uses environment variables and Spring profiles so the same code can run in different environments.
+
+Common JWT settings:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `JWT_SECRET` | Secret used to sign JWT tokens | `internship-tracker-dev-secret-key-32bytes` |
+| `JWT_EXPIRATION_MS` | JWT expiration time in milliseconds | `3600000` |
+
+Development profile database settings:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `DB_URL` | MySQL connection URL | `jdbc:mysql://localhost:3306/internship_tracker...` |
+| `DB_USERNAME` | MySQL username | `root` |
+| `DB_PASSWORD` | MySQL password | empty |
+
+Test profile database settings:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `TEST_DB_URL` | Test database URL | `jdbc:mysql://localhost:3306/internship_tracker_test...` |
+| `TEST_DB_USERNAME` | Test database username | falls back to `DB_USERNAME` |
+| `TEST_DB_PASSWORD` | Test database password | falls back to `DB_PASSWORD` |
+| `TEST_JWT_SECRET` | Test JWT secret | `test-secret-key-with-at-least-32-bytes` |
+| `TEST_JWT_EXPIRATION_MS` | Test JWT expiration | `3600000` |
+
+Profiles:
+
+- `dev`: local MySQL development configuration
+- `test`: test-focused configuration
+
 ## Local Setup
 
 Create a MySQL database:
@@ -163,7 +198,7 @@ export JWT_EXPIRATION_MS='3600000'
 Run the app:
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
 Run compile/tests:
@@ -178,6 +213,7 @@ Current backend test coverage includes:
 - `InternshipServiceTest`: current-user scoped internship CRUD
 - `JwtUtilTest`: JWT generation, validation, and userId extraction
 - `JwtAuthenticationFilterTest`: SecurityContext authentication setup
+- `JwtPropertiesTest`: JWT property binding
 - `UserControllerTest`: user endpoint responses and exception mapping
 
 ## Apifox Regression Tests
