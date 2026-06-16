@@ -1,13 +1,17 @@
 package com.ezra.internshiptracker.service;
 
+import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
 import com.ezra.internshiptracker.dto.internship.UpdateInternshipRequest;
 import com.ezra.internshiptracker.entity.Internship;
+import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
 import com.ezra.internshiptracker.repository.InternshipRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -20,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -78,13 +83,29 @@ class InternshipServiceTest {
 
     @Test
     void getMyInternshipsOnlyReadsCurrentUsersRows() {
-        when(internshipRepository.findByUserId(1L)).thenReturn(List.of(internship()));
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
 
-        List<InternshipResponse> internships = internshipService.getMyInternships(1L);
+        PageResponse<InternshipResponse> internships =
+                internshipService.getMyInternships(1L, 0, 10, null, null, "createdAt,desc");
 
-        assertThat(internships).hasSize(1);
-        assertThat(internships.get(0).getId()).isEqualTo(10L);
-        verify(internshipRepository).findByUserId(1L);
+        assertThat(internships.getContent()).hasSize(1);
+        assertThat(internships.getContent().get(0).getId()).isEqualTo(10L);
+        assertThat(internships.getPage()).isEqualTo(0);
+        verify(internshipRepository).searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class));
+    }
+
+    @Test
+    void getMyInternshipsSupportsStatusAndKeywordFilters() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(InternshipStatus.APPLIED), eq("open"), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        PageResponse<InternshipResponse> internships =
+                internshipService.getMyInternships(1L, 0, 10, InternshipStatus.APPLIED, " open ", "company,asc");
+
+        assertThat(internships.getContent()).hasSize(1);
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(InternshipStatus.APPLIED), eq("open"), any(Pageable.class));
     }
 
     @Test
@@ -118,7 +139,7 @@ class InternshipServiceTest {
         internship.setCompany("OpenAI");
         internship.setPosition("Software Engineer Intern");
         internship.setLocation("Sydney");
-        internship.setStatus("Applied");
+        internship.setStatus(InternshipStatus.APPLIED);
         internship.setApplicationUrl("https://example.com");
         return internship;
     }
@@ -128,7 +149,7 @@ class InternshipServiceTest {
         request.setCompany("OpenAI");
         request.setPosition("Software Engineer Intern");
         request.setLocation("Sydney");
-        request.setStatus("Applied");
+        request.setStatus(InternshipStatus.APPLIED);
         request.setApplicationUrl("https://example.com");
         return request;
     }
@@ -138,7 +159,7 @@ class InternshipServiceTest {
         request.setCompany("Anthropic");
         request.setPosition("Backend Intern");
         request.setLocation("Sydney");
-        request.setStatus("Interview");
+        request.setStatus(InternshipStatus.INTERVIEW);
         request.setApplicationUrl("https://example.com/updated");
         return request;
     }

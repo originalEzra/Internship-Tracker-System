@@ -17,7 +17,7 @@ Body:
   "company": "User A Private Company",
   "position": "Private Internship",
   "location": "Sydney",
-  "status": "Applied",
+  "status": "APPLIED",
   "applicationUrl": "https://example.com/private"
 }
 ```
@@ -95,7 +95,7 @@ Body:
   "company": "Should Not Update",
   "position": "Should Not Update",
   "location": "Sydney",
-  "status": "Applied",
+  "status": "APPLIED",
   "applicationUrl": "https://example.com/blocked"
 }
 ```

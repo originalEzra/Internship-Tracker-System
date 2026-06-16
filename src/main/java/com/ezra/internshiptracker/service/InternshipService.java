@@ -1,9 +1,15 @@
 package com.ezra.internshiptracker.service;
 
+import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
 import com.ezra.internshiptracker.entity.Internship;
+import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.repository.InternshipRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
@@ -14,7 +20,7 @@ import com.ezra.internshiptracker.repository.UserRepository;
 import com.ezra.internshiptracker.exception.UserNotFoundException;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 @Service
 public class InternshipService {
@@ -28,11 +34,26 @@ public class InternshipService {
         this.userRepository = userRepository;
     }
 
-    public List<InternshipResponse> getMyInternships(Long userId) {
-        return internshipRepository.findByUserId(userId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> ALLOWED_SORT_FIELDS =
+            Set.of("createdAt", "company", "position", "status");
+
+    public PageResponse<InternshipResponse> getMyInternships(
+            Long userId,
+            int page,
+            int size,
+            InternshipStatus status,
+            String keyword,
+            String sort
+    ) {
+        Pageable pageable = buildPageable(page, size, sort);
+        String normalizedKeyword = normalizeKeyword(keyword);
+
+        Page<InternshipResponse> internships =
+                internshipRepository.searchMyInternships(userId, status, normalizedKeyword, pageable)
+                        .map(this::toResponse);
+
+        return PageResponse.from(internships);
     }
 
     public InternshipResponse getMyInternshipById(Long id, Long userId) {
@@ -100,5 +121,41 @@ public class InternshipService {
         response.setCreatedAt(internship.getCreatedAt());
 
         return response;
+    }
+
+    private Pageable buildPageable(int page, int size, String sort) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+
+        return PageRequest.of(safePage, safeSize, parseSort(sort));
+    }
+
+    private Sort parseSort(String sort) {
+        if (sort == null || sort.isBlank()) {
+            return Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+
+        String[] parts = sort.split(",");
+        String field = parts[0].trim();
+
+        if (!ALLOWED_SORT_FIELDS.contains(field)) {
+            field = "createdAt";
+        }
+
+        Sort.Direction direction = Sort.Direction.DESC;
+
+        if (parts.length > 1 && "asc".equalsIgnoreCase(parts[1].trim())) {
+            direction = Sort.Direction.ASC;
+        }
+
+        return Sort.by(direction, field);
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+
+        return keyword.trim();
     }
 }

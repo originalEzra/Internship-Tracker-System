@@ -1,8 +1,10 @@
 package com.ezra.internshiptracker.controller;
 
 import com.ezra.internshiptracker.dto.ApiResponse;
+import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
+import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.service.InternshipService;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,7 +13,6 @@ import com.ezra.internshiptracker.dto.internship.UpdateInternshipRequest;
 import org.springframework.security.core.Authentication;
 
 import jakarta.validation.Valid;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/internships")
@@ -28,13 +29,18 @@ public class InternshipController {
     }
 
     @GetMapping
-    public ApiResponse<List<InternshipResponse>> getMyInternships(
-            Authentication authentication
+    public ApiResponse<PageResponse<InternshipResponse>> getMyInternships(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) InternshipStatus status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "createdAt,desc") String sort
     ) {
         Long userId = getCurrentUserId(authentication);
 
-        List<InternshipResponse> internships =
-                internshipService.getMyInternships(userId);
+        PageResponse<InternshipResponse> internships =
+                internshipService.getMyInternships(userId, page, size, status, keyword, sort);
 
         return ApiResponse.success(internships);
     }

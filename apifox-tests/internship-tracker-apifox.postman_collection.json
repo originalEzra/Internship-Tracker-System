@@ -410,7 +410,7 @@
         "url": "{{baseUrl}}/api/internships",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"company\": \"Apifox Company\",\n  \"position\": \"Backend Intern\",\n  \"location\": \"Sydney\",\n  \"status\": \"Applied\",\n  \"applicationUrl\": \"https://example.com/job\"\n}"
+          "raw": "{\n  \"company\": \"Apifox Company\",\n  \"position\": \"Backend Intern\",\n  \"location\": \"Sydney\",\n  \"status\": \"APPLIED\",\n  \"applicationUrl\": \"https://example.com/job\"\n}"
         }
       },
       "event": [
@@ -442,7 +442,7 @@
             "value": "Bearer {{token}}"
           }
         ],
-        "url": "{{baseUrl}}/api/internships"
+        "url": "{{baseUrl}}/api/internships?page=0&size=10&status=APPLIED&keyword=Apifox&sort=createdAt,desc"
       },
       "event": [
         {
@@ -454,8 +454,9 @@
               "  pm.response.to.have.status(200);",
               "  const json = pm.response.json();",
               "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.content).to.be.an('array');",
               "  const internshipId = Number(pm.collectionVariables.get('internshipId'));",
-              "  const found = json.data.some(item => item.id === internshipId);",
+              "  const found = json.data.content.some(item => item.id === internshipId);",
               "  pm.expect(found).to.eql(true);",
               "});"
             ]
@@ -509,7 +510,7 @@
         "url": "{{baseUrl}}/api/internships/{{internshipId}}",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"Interview\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
+          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"INTERVIEW\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
         }
       },
       "event": [
@@ -696,7 +697,7 @@
             "url": "{{baseUrl}}/api/internships",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"company\": \"User A Private Company\",\n  \"position\": \"Private Internship\",\n  \"location\": \"Sydney\",\n  \"status\": \"Applied\",\n  \"applicationUrl\": \"https://example.com/private\"\n}"
+              "raw": "{\n  \"company\": \"User A Private Company\",\n  \"position\": \"Private Internship\",\n  \"location\": \"Sydney\",\n  \"status\": \"APPLIED\",\n  \"applicationUrl\": \"https://example.com/private\"\n}"
             }
           },
           "event": [
@@ -848,7 +849,7 @@
                   "      company: 'Should Not Update',",
                   "      position: 'Should Not Update',",
                   "      location: 'Sydney',",
-                  "      status: 'Applied',",
+                  "      status: 'APPLIED',",
                   "      applicationUrl: 'https://example.com/blocked'",
                   "    })",
                   "  }",

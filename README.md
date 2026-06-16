@@ -17,7 +17,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication and user isolation milestone.
+This version completes the authentication, user isolation, database migration, and internship query milestone.
 
 Implemented:
 
@@ -38,6 +38,8 @@ Implemented:
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
 - Environment-based configuration with Spring profiles for development and testing
 - Flyway database migrations for users and internships schema management
+- Paginated, searchable, filterable, and sortable internship list API
+- Enum-based internship status values: `APPLIED`, `INTERVIEW`, `OFFER`, `REJECTED`
 
 ## Authentication Flow
 
@@ -81,11 +83,35 @@ Authorization: Bearer <token>
 
 | Method | Endpoint | Description | Auth |
 | --- | --- | --- | --- |
-| GET | `/api/internships` | Get current user's internships | Yes |
+| GET | `/api/internships` | Get current user's internships with pagination/filter/search/sort | Yes |
 | GET | `/api/internships/{id}` | Get current user's internship by id | Yes |
 | POST | `/api/internships` | Create internship for current user | Yes |
 | PUT | `/api/internships/{id}` | Update current user's internship | Yes |
 | DELETE | `/api/internships/{id}` | Delete current user's internship | Yes |
+
+`GET /api/internships` supports:
+
+| Query Parameter | Description | Example |
+| --- | --- | --- |
+| `page` | Zero-based page number | `0` |
+| `size` | Page size, capped at 100 | `10` |
+| `status` | Optional internship status filter | `APPLIED` |
+| `keyword` | Optional search keyword for company or position | `google` |
+| `sort` | Sort field and direction | `createdAt,desc` |
+
+Allowed sort fields:
+
+- `createdAt`
+- `company`
+- `position`
+- `status`
+
+Example:
+
+```http
+GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=createdAt,desc
+Authorization: Bearer <token>
+```
 
 ## Response Format
 
@@ -106,6 +132,24 @@ Error response:
   "code": 401,
   "message": "Unauthorized",
   "data": null
+}
+```
+
+Paginated internship response:
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "content": [],
+    "page": 0,
+    "size": 10,
+    "totalElements": 0,
+    "totalPages": 0,
+    "first": true,
+    "last": true
+  }
 }
 ```
 
@@ -132,6 +176,14 @@ Initial migration:
 ```text
 V1__create_users_and_internships_tables.sql
 ```
+
+Query enhancement migration:
+
+```text
+V2__normalize_internship_status_and_add_query_indexes.sql
+```
+
+`V2` normalizes old text status values to uppercase enum values and adds indexes for current-user internship queries by `user_id`, `status`, and `created_at`.
 
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
@@ -227,11 +279,12 @@ Run compile/tests:
 Current backend test coverage includes:
 
 - `UserServiceTest`: registration, duplicate users, login, password update, account deletion
-- `InternshipServiceTest`: current-user scoped internship CRUD
+- `InternshipServiceTest`: current-user scoped internship CRUD, pagination, filtering, and keyword search
 - `JwtUtilTest`: JWT generation, validation, and userId extraction
 - `JwtAuthenticationFilterTest`: SecurityContext authentication setup
 - `JwtPropertiesTest`: JWT property binding
 - `UserControllerTest`: user endpoint responses and exception mapping
+- `InternshipControllerTest`: internship query parameters and invalid request parameter handling
 
 ## Apifox Regression Tests
 
@@ -258,7 +311,7 @@ The collection covers:
 - change password
 - old password login failure
 - create internship
-- get current user's internships
+- get current user's internships with pagination, status filter, keyword search, and sorting
 - update own internship
 - delete own internship
 - no-token 401
@@ -278,10 +331,11 @@ The collection covers:
 - User deletion was updated to remove the user's internships first to avoid foreign key failures.
 - Apifox tests were changed to generate unique test data per run.
 - Database schema management was moved from Hibernate auto-update to Flyway migrations.
+- Internship list queries were upgraded from returning a raw list to returning a paginated `PageResponse`.
+- Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
 
 ## Next Improvements
 
-- Add pagination, filtering, and sorting for internships.
 - Add `updatedAt` fields.
 - Add stronger password validation.
 - Add refresh token or role-based authorization.

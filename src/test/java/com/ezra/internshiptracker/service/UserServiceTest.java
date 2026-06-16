@@ -14,6 +14,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -130,11 +133,12 @@ class UserServiceTest {
         Internship internship = new Internship();
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(internshipRepository.findByUserId(1L)).thenReturn(List.of(internship));
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship)));
 
         userService.deleteUser(1L);
 
-        ArgumentCaptor<List<Internship>> internshipsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<Iterable<Internship>> internshipsCaptor = ArgumentCaptor.forClass(Iterable.class);
         verify(internshipRepository).deleteAll(internshipsCaptor.capture());
         verify(userRepository).delete(user);
         assertThat(internshipsCaptor.getValue()).containsExactly(internship);

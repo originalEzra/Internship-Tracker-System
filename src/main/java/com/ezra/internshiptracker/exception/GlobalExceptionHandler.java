@@ -2,10 +2,12 @@ package com.ezra.internshiptracker.exception;
 
 import com.ezra.internshiptracker.dto.ApiResponse;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -74,6 +76,20 @@ public class GlobalExceptionHandler {
             DataIntegrityViolationException e
     ) {
         return error(400, "Duplicate or invalid data");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<String>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException e
+    ) {
+        return error(400, "Invalid request parameter");
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<String>> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException e
+    ) {
+        return error(400, "Invalid request body");
     }
 
     @ExceptionHandler(Exception.class)

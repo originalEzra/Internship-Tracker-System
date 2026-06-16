@@ -76,7 +76,9 @@ public class UserService {
     public void deleteUser(Long userId) {
         User user = getUserById(userId);
 
-        internshipRepository.deleteAll(internshipRepository.findByUserId(userId));
+        internshipRepository.deleteAll(
+                internshipRepository.searchMyInternships(userId, null, null, org.springframework.data.domain.Pageable.unpaged())
+        );
         userRepository.delete(user);
     }
 
