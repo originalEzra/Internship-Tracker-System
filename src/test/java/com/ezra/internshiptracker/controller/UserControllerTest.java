@@ -1,9 +1,9 @@
 package com.ezra.internshiptracker.controller;
 
-import com.ezra.internshiptracker.config.JwtUtil;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
 import com.ezra.internshiptracker.exception.LoginFailedException;
+import com.ezra.internshiptracker.service.AuthService;
 import com.ezra.internshiptracker.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,16 +27,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class UserControllerTest {
 
     private UserService userService;
-    private JwtUtil jwtUtil;
+    private AuthService authService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         userService = Mockito.mock(UserService.class);
-        jwtUtil = Mockito.mock(JwtUtil.class);
+        authService = Mockito.mock(AuthService.class);
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new UserController(userService, jwtUtil))
+                .standaloneSetup(new UserController(userService, authService))
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
@@ -68,7 +68,8 @@ class UserControllerTest {
         User user = user(1L, "ezra", "ezra@example.com");
 
         when(userService.login(any())).thenReturn(user);
-        when(jwtUtil.generateToken(1L)).thenReturn("jwt-token");
+        when(authService.createAccessToken(user)).thenReturn("jwt-token");
+        when(authService.createRefreshToken(user)).thenReturn("refresh-token");
 
         mockMvc.perform(post("/api/users/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -82,7 +83,41 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("Login successful"))
                 .andExpect(jsonPath("$.data.token").value("jwt-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
                 .andExpect(jsonPath("$.data.user.id").value(1));
+    }
+
+    @Test
+    void refreshTokenReturnsNewAccessToken() throws Exception {
+        when(authService.refreshAccessToken("refresh-token")).thenReturn("new-jwt-token");
+
+        mockMvc.perform(post("/api/users/refresh-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "refresh-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("Token refreshed"))
+                .andExpect(jsonPath("$.data.token").value("new-jwt-token"));
+    }
+
+    @Test
+    void logoutDeletesRefreshToken() throws Exception {
+        mockMvc.perform(post("/api/users/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "refreshToken": "refresh-token"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message").value("Logged out"));
+
+        verify(authService).logout("refresh-token");
     }
 
     @Test

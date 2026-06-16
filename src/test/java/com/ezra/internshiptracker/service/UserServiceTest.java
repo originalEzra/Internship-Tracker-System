@@ -7,6 +7,7 @@ import com.ezra.internshiptracker.exception.DuplicateUserException;
 import com.ezra.internshiptracker.exception.InvalidPasswordException;
 import com.ezra.internshiptracker.exception.LoginFailedException;
 import com.ezra.internshiptracker.repository.InternshipRepository;
+import com.ezra.internshiptracker.repository.RefreshTokenRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,6 +38,9 @@ class UserServiceTest {
 
     @Mock
     private InternshipRepository internshipRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -140,6 +144,7 @@ class UserServiceTest {
 
         ArgumentCaptor<Iterable<Internship>> internshipsCaptor = ArgumentCaptor.forClass(Iterable.class);
         verify(internshipRepository).deleteAll(internshipsCaptor.capture());
+        verify(refreshTokenRepository).deleteByUserId(1L);
         verify(userRepository).delete(user);
         assertThat(internshipsCaptor.getValue()).containsExactly(internship);
     }

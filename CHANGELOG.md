@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-06-16 - Refresh Token and Logout Milestone
+
+### Added
+
+- Refresh token entity and repository.
+- `refresh_tokens` table migration: `V3__create_refresh_tokens_table.sql`.
+- `AuthService` for access token creation, refresh token creation, refresh flow, and logout.
+- `POST /api/users/refresh-token` endpoint.
+- `POST /api/users/logout` endpoint.
+- `JWT_REFRESH_EXPIRATION_MS` and `TEST_JWT_REFRESH_EXPIRATION_MS` configuration.
+- Controller and service tests for refresh token and logout behavior.
+
+### Changed
+
+- Login response now returns both `token` and `refreshToken`.
+- Refresh tokens are generated as random opaque tokens.
+- Only SHA-256 refresh token hashes are stored in the database.
+- User deletion now removes refresh tokens before deleting the user.
+- Apifox regression collection now covers refresh-token reuse and logout.
+
+### Fixed
+
+- Prevented user deletion from being blocked by future refresh token foreign key references.
+
+### Verified
+
+- `./mvnw test` passes.
+- 33 backend tests run successfully with 0 failures.
+
 ## 2026-06-16 - Internship Query Enhancement Milestone
 
 ### Added

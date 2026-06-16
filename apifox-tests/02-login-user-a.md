@@ -22,9 +22,10 @@ pm.test("login user A success", function () {
   const json = pm.response.json();
   pm.expect(json.code).to.eql(200);
   pm.expect(json.data.token).to.be.a("string");
+  pm.expect(json.data.refreshToken).to.be.a("string");
 
   pm.environment.set("token", json.data.token);
+  pm.environment.set("refreshToken", json.data.refreshToken);
   pm.environment.set("userId", json.data.user.id);
 });
 ```
-

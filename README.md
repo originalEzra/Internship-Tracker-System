@@ -17,7 +17,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication, user isolation, database migration, and internship query milestone.
+This version completes the authentication, refresh token, logout, user isolation, database migration, and internship query milestone.
 
 Implemented:
 
@@ -25,6 +25,7 @@ Implemented:
 - BCrypt password hashing
 - JWT stateless authentication
 - JWT subject based on `userId`
+- Refresh token issuing, storage, refresh, and logout
 - `/api/users/me` current-user endpoints
 - Password update with old password verification
 - Internship CRUD scoped to the authenticated user
@@ -48,17 +49,35 @@ Implemented:
 3. Backend hashes the password with BCrypt.
 4. User logs in with username and password.
 5. Backend validates the password with `passwordEncoder.matches(...)`.
-6. Backend generates a JWT with `userId` as the subject.
-7. Frontend stores the token.
-8. Frontend sends protected requests with:
+6. Backend generates an access JWT with `userId` as the subject.
+7. Backend generates a random refresh token.
+8. Backend stores only the SHA-256 hash of the refresh token.
+9. Frontend stores the access token and refresh token.
+10. Frontend sends protected requests with:
 
 ```http
 Authorization: Bearer <token>
 ```
 
-9. `JwtAuthenticationFilter` parses and validates the token.
-10. The filter creates an `Authentication` object and writes it into `SecurityContextHolder`.
-11. Controllers read the authenticated user from `Authentication`, not from request body or URL parameters.
+11. `JwtAuthenticationFilter` parses and validates the access token.
+12. The filter creates an `Authentication` object and writes it into `SecurityContextHolder`.
+13. Controllers read the authenticated user from `Authentication`, not from request body or URL parameters.
+
+When the access token expires, the frontend can call:
+
+```http
+POST /api/users/refresh-token
+```
+
+with the refresh token to receive a new access token.
+
+Logout calls:
+
+```http
+POST /api/users/logout
+```
+
+and deletes the stored refresh token hash. The existing access token may still work until it expires because JWT access tokens are stateless.
 
 ## API Overview
 
@@ -73,7 +92,9 @@ Authorization: Bearer <token>
 | Method | Endpoint | Description | Auth |
 | --- | --- | --- | --- |
 | POST | `/api/users` | Register user | No |
-| POST | `/api/users/login` | Login and receive JWT | No |
+| POST | `/api/users/login` | Login and receive access/refresh tokens | No |
+| POST | `/api/users/refresh-token` | Use refresh token to receive a new access token | No |
+| POST | `/api/users/logout` | Delete refresh token so it cannot be reused | No |
 | GET | `/api/users/me` | Get current user | Yes |
 | PUT | `/api/users/me` | Update current user's username/email | Yes |
 | PUT | `/api/users/me/password` | Update current user's password | Yes |
@@ -158,6 +179,9 @@ Paginated internship response:
 - Passwords are never returned in API responses.
 - Passwords are stored as BCrypt hashes.
 - JWT uses `userId` as subject because `username` can change.
+- Refresh tokens are generated as random opaque tokens.
+- Only refresh token hashes are stored in the database.
+- Logout invalidates the refresh token, not already-issued access tokens.
 - Protected endpoints do not trust frontend-provided `userId`.
 - Internship access uses `findByIdAndUserId(id, currentUserId)` to prevent cross-user access.
 - Missing or invalid token returns `401 Unauthorized`.
@@ -184,6 +208,14 @@ V2__normalize_internship_status_and_add_query_indexes.sql
 ```
 
 `V2` normalizes old text status values to uppercase enum values and adds indexes for current-user internship queries by `user_id`, `status`, and `created_at`.
+
+Refresh token migration:
+
+```text
+V3__create_refresh_tokens_table.sql
+```
+
+`V3` creates `refresh_tokens` with a hashed token value, expiration time, creation time, and `user_id` foreign key.
 
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
@@ -219,7 +251,8 @@ Common JWT settings:
 | Variable | Description | Default |
 | --- | --- | --- |
 | `JWT_SECRET` | Secret used to sign JWT tokens | `internship-tracker-dev-secret-key-32bytes` |
-| `JWT_EXPIRATION_MS` | JWT expiration time in milliseconds | `3600000` |
+| `JWT_EXPIRATION_MS` | Access token expiration time in milliseconds | `3600000` |
+| `JWT_REFRESH_EXPIRATION_MS` | Refresh token expiration time in milliseconds | `604800000` |
 
 Development profile database settings:
 
@@ -237,7 +270,8 @@ Test profile database settings:
 | `TEST_DB_USERNAME` | Test database username | falls back to `DB_USERNAME` |
 | `TEST_DB_PASSWORD` | Test database password | falls back to `DB_PASSWORD` |
 | `TEST_JWT_SECRET` | Test JWT secret | `test-secret-key-with-at-least-32-bytes` |
-| `TEST_JWT_EXPIRATION_MS` | Test JWT expiration | `3600000` |
+| `TEST_JWT_EXPIRATION_MS` | Test access token expiration | `3600000` |
+| `TEST_JWT_REFRESH_EXPIRATION_MS` | Test refresh token expiration | `604800000` |
 
 Profiles:
 
@@ -260,6 +294,7 @@ export DB_USERNAME='root'
 export DB_PASSWORD='your_mysql_password'
 export JWT_SECRET='replace-with-at-least-32-byte-secret-key'
 export JWT_EXPIRATION_MS='3600000'
+export JWT_REFRESH_EXPIRATION_MS='604800000'
 ```
 
 Run the app:
@@ -285,6 +320,7 @@ Current backend test coverage includes:
 - `JwtPropertiesTest`: JWT property binding
 - `UserControllerTest`: user endpoint responses and exception mapping
 - `InternshipControllerTest`: internship query parameters and invalid request parameter handling
+- `AuthServiceTest`: refresh token hashing, access token refresh, expiration handling, and logout
 
 ## Apifox Regression Tests
 
@@ -306,6 +342,7 @@ The collection covers:
 
 - register
 - login
+- refresh access token
 - get current user
 - update current user
 - change password
@@ -317,6 +354,7 @@ The collection covers:
 - no-token 401
 - duplicate register 400
 - cross-user internship isolation
+- logout and refresh-token reuse failure
 - delete current user
 
 ## Important Problems Solved
@@ -333,10 +371,12 @@ The collection covers:
 - Database schema management was moved from Hibernate auto-update to Flyway migrations.
 - Internship list queries were upgraded from returning a raw list to returning a paginated `PageResponse`.
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
+- Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
+- Logout was implemented by deleting the stored refresh token hash.
 
 ## Next Improvements
 
 - Add `updatedAt` fields.
 - Add stronger password validation.
-- Add refresh token or role-based authorization.
+- Add role-based authorization.
 - Improve README with screenshots and request examples as the frontend grows.

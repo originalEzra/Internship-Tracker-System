@@ -72,6 +72,14 @@
     {
       "key": "runId",
       "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "refreshedToken",
+      "value": ""
     }
   ],
   "item": [
@@ -91,6 +99,8 @@
               "const runId = Date.now().toString();",
               "pm.collectionVariables.set('runId', runId);",
               "pm.collectionVariables.set('token', '');",
+              "pm.collectionVariables.set('refreshToken', '');",
+              "pm.collectionVariables.set('refreshedToken', '');",
               "pm.collectionVariables.set('newToken', '');",
               "pm.collectionVariables.set('userId', '');",
               "pm.collectionVariables.set('internshipId', '');",
@@ -172,6 +182,8 @@
               "  const json = pm.response.json();",
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.token).to.be.a('string');",
+              "  pm.expect(json.data.refreshToken).to.be.a('string');",
+              "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
               "  pm.collectionVariables.set('token', json.data.token);",
               "  pm.collectionVariables.set('userId', json.data.user.id);",
               "});"
@@ -381,11 +393,53 @@
           "script": {
             "type": "text/javascript",
             "exec": [
+              "  pm.expect(json.data.refreshToken).to.be.a('string');",
               "pm.test('new password login succeeds', function () {",
               "  pm.response.to.have.status(200);",
               "  const json = pm.response.json();",
               "  pm.expect(json.code).to.eql(200);",
               "  pm.collectionVariables.set('newToken', json.data.token);",
+              "  pm.collectionVariables.set('refreshToken', json.data.refreshToken);",
+              "  pm.collectionVariables.set('token', json.data.token);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08.1 Refresh Access Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/users/refresh-token"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('refresh token returns new access token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.token).to.be.a('string');",
+              "  pm.collectionVariables.set('refreshedToken', json.data.token);",
               "  pm.collectionVariables.set('token', json.data.token);",
               "});"
             ]
@@ -868,7 +922,82 @@
       ]
     },
     {
-      "name": "18 Delete Current User",
+      "name": "18 Logout Current User",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/users/logout"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('logout deletes refresh token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.message).to.eql('Logged out');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Refresh After Logout Should Return 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/users/refresh-token"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('refresh token cannot be used after logout', function () {",
+              "  pm.response.to.have.status(401);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(401);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Delete Current User",
       "request": {
         "method": "DELETE",
         "header": [

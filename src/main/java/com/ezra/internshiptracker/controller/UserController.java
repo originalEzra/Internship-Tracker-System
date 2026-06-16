@@ -7,6 +7,9 @@ import org.springframework.web.bind.annotation.*;
 import com.ezra.internshiptracker.dto.user.UserResponse;
 
 //让UserService接管，controller不再直接操作数据库，Service调用Repository完成crud操作
+import com.ezra.internshiptracker.dto.user.RefreshTokenRequest;
+import com.ezra.internshiptracker.dto.user.RefreshTokenResponse;
+import com.ezra.internshiptracker.service.AuthService;
 import com.ezra.internshiptracker.service.UserService;
 import com.ezra.internshiptracker.dto.user.UserCreateRequest;
 import com.ezra.internshiptracker.dto.user.UserPasswordUpdateRequest;
@@ -15,7 +18,6 @@ import com.ezra.internshiptracker.dto.ApiResponse;
 
 import com.ezra.internshiptracker.dto.user.LoginRequest;
 
-import com.ezra.internshiptracker.config.JwtUtil;
 import com.ezra.internshiptracker.dto.user.LoginResponse;
 
 import org.springframework.security.core.Authentication;
@@ -34,11 +36,11 @@ public class UserController {
     }   */
 
     private final UserService userService;
-    private final JwtUtil jwtUtil;
+    private final AuthService authService;
 
-    public UserController(UserService userService, JwtUtil jwtUtil) {
+    public UserController(UserService userService, AuthService authService) {
         this.userService = userService;
-        this.jwtUtil = jwtUtil;
+        this.authService = authService;
     }
 
     private UserResponse toUserResponse(User user) { //DTO
@@ -85,14 +87,33 @@ public class UserController {
 
         User user = userService.login(request);
 
-        String token = jwtUtil.generateToken(user.getId());
+        String token = authService.createAccessToken(user);
+        String refreshToken = authService.createRefreshToken(user);
 
         UserResponse userResponse = toUserResponse(user);
 
         LoginResponse response =
-                new LoginResponse(token, userResponse);
+                new LoginResponse(token, refreshToken, userResponse);
 
         return ApiResponse.success("Login successful", response);
+    }
+
+    @PostMapping("/refresh-token")
+    public ApiResponse<RefreshTokenResponse> refreshToken(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        String token = authService.refreshAccessToken(request.getRefreshToken());
+
+        return ApiResponse.success("Token refreshed", new RefreshTokenResponse(token));
+    }
+
+    @PostMapping("/logout")
+    public ApiResponse<String> logout(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        authService.logout(request.getRefreshToken());
+
+        return ApiResponse.success("Logged out", null);
     }
 
     @PutMapping("/me")
