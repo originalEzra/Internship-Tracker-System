@@ -8,7 +8,7 @@ class JwtUtilTest {
 
     @Test
     void generatedTokenCanBeValidatedAndParsedBackToUserId() {
-        JwtUtil jwtUtil = new JwtUtil("test-secret-key-with-at-least-32-bytes", 3_600_000L);
+        JwtUtil jwtUtil = new JwtUtil(jwtProperties());
 
         String token = jwtUtil.generateToken(123L);
 
@@ -18,8 +18,15 @@ class JwtUtilTest {
 
     @Test
     void invalidTokenIsRejected() {
-        JwtUtil jwtUtil = new JwtUtil("test-secret-key-with-at-least-32-bytes", 3_600_000L);
+        JwtUtil jwtUtil = new JwtUtil(jwtProperties());
 
         assertThat(jwtUtil.validateToken("not-a-valid-token")).isFalse();
+    }
+
+    private JwtProperties jwtProperties() {
+        JwtProperties jwtProperties = new JwtProperties();
+        jwtProperties.setSecret("test-secret-key-with-at-least-32-bytes");
+        jwtProperties.setExpirationMs(3_600_000L);
+        return jwtProperties;
     }
 }

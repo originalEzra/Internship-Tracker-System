@@ -2,7 +2,6 @@ package com.ezra.internshiptracker.config;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -16,12 +15,9 @@ public class JwtUtil {
     private final String secretKey;
     private final long expirationMs;
 
-    public JwtUtil(
-            @Value("${jwt.secret}") String secretKey,
-            @Value("${jwt.expiration-ms}") long expirationMs
-    ) {
-        this.secretKey = secretKey;
-        this.expirationMs = expirationMs;
+    public JwtUtil(JwtProperties jwtProperties) {
+        this.secretKey = jwtProperties.getSecret();
+        this.expirationMs = jwtProperties.getExpirationMs();
     }
 
     private Key getSigningKey() {
