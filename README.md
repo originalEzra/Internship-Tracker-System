@@ -37,6 +37,7 @@ Implemented:
 - Apifox regression collection covering the full login and internship flow
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
 - Environment-based configuration with Spring profiles for development and testing
+- Flyway database migrations for users and internships schema management
 
 ## Authentication Flow
 
@@ -120,6 +121,20 @@ Error response:
 
 ## Database Design
 
+Database schema is managed by Flyway migrations under:
+
+```text
+src/main/resources/db/migration
+```
+
+Initial migration:
+
+```text
+V1__create_users_and_internships_tables.sql
+```
+
+Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
+
 ### users
 
 | Column | Description |
@@ -201,6 +216,8 @@ Run the app:
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+For an existing local database that was created before Flyway was introduced, `spring.flyway.baseline-on-migrate=true` is enabled in the dev profile. This lets Flyway create its schema history table without trying to recreate existing tables.
+
 Run compile/tests:
 
 ```bash
@@ -260,10 +277,10 @@ The collection covers:
 - Database unique constraints were added to protect against duplicate username/email under concurrency.
 - User deletion was updated to remove the user's internships first to avoid foreign key failures.
 - Apifox tests were changed to generate unique test data per run.
+- Database schema management was moved from Hibernate auto-update to Flyway migrations.
 
 ## Next Improvements
 
-- Add Flyway database migrations.
 - Add pagination, filtering, and sorting for internships.
 - Add `updatedAt` fields.
 - Add stronger password validation.

@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-06-10 - Database Migration Milestone
+
+### Added
+
+- Flyway dependencies for database migration management.
+- Initial migration: `V1__create_users_and_internships_tables.sql`.
+- Explicit `users` table schema with unique constraints for username and email.
+- Explicit `internships` table schema with `user_id` foreign key.
+- Index on `internships.user_id`.
+
+### Changed
+
+- Development profile now uses `spring.jpa.hibernate.ddl-auto=validate`.
+- Test profile now uses `spring.jpa.hibernate.ddl-auto=validate`.
+- Enabled `spring.flyway.baseline-on-migrate=true` for smoother adoption on existing local schemas.
+- Updated README database section with Flyway migration notes.
+
+### Verified
+
+- `./mvnw test` passes.
+- 24 backend tests run successfully with 0 failures.
+
 ## 2026-06-10 - Configuration Profile Milestone
 
 ### Added
