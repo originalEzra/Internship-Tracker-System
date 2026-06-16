@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-06-16 - Internship Query Enhancement Milestone
+
+### Added
+
+- `InternshipStatus` enum with `APPLIED`, `INTERVIEW`, `OFFER`, and `REJECTED`.
+- `PageResponse<T>` DTO for stable paginated API responses.
+- Pagination, status filtering, keyword search, and sorting for `GET /api/internships`.
+- Repository query for current-user internship search by status and keyword.
+- Controller tests for internship query parameters and invalid enum parameters.
+- Flyway migration `V2__normalize_internship_status_and_add_query_indexes.sql`.
+
+### Changed
+
+- Internship `status` changed from free-form `String` to enum.
+- Create/update internship requests now require enum status values.
+- Internship list API now returns a paginated response instead of a raw list.
+- Apifox regression tests now use uppercase enum status values and assert `data.content`.
+- User deletion now loads owned internships through the query repository method.
+
+### Fixed
+
+- Inconsistent status text such as `Applied` and `Interview` is normalized for enum compatibility.
+- Invalid request parameters and unreadable JSON bodies now return unified `ApiResponse` error bodies.
+
+### Verified
+
+- `./mvnw test` passes.
+- 27 backend tests run successfully with 0 failures.
+
 ## 2026-06-10 - Database Migration Milestone
 
 ### Added

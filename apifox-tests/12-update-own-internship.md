@@ -13,7 +13,7 @@ Body:
   "company": "Apifox Company Updated",
   "position": "Backend Intern Updated",
   "location": "Melbourne",
-  "status": "Interview",
+  "status": "INTERVIEW",
   "applicationUrl": "https://example.com/job-updated"
 }
 ```

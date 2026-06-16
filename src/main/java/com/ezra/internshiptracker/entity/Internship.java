@@ -20,7 +20,8 @@ public class Internship {
 
     private String location;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private InternshipStatus status;
 
     private String applicationUrl;
 

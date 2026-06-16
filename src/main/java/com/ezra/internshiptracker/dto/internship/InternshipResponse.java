@@ -1,5 +1,6 @@
 package com.ezra.internshiptracker.dto.internship;
 
+import com.ezra.internshiptracker.entity.InternshipStatus;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -15,7 +16,7 @@ public class InternshipResponse {
 
     private String location;
 
-    private String status;
+    private InternshipStatus status;
 
     private String applicationUrl;
 
