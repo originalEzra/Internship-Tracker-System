@@ -2,6 +2,7 @@ package com.ezra.internshiptracker.service;
 
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.repository.InternshipRepository;
+import com.ezra.internshiptracker.repository.RefreshTokenRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,13 +21,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final InternshipRepository internshipRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository,
                        InternshipRepository internshipRepository,
+                       RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.internshipRepository = internshipRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -79,6 +83,7 @@ public class UserService {
         internshipRepository.deleteAll(
                 internshipRepository.searchMyInternships(userId, null, null, org.springframework.data.domain.Pageable.unpaged())
         );
+        refreshTokenRepository.deleteByUserId(userId);
         userRepository.delete(user);
     }
 

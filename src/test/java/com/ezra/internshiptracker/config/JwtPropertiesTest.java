@@ -12,7 +12,8 @@ class JwtPropertiesTest {
             .withUserConfiguration(TestConfig.class)
             .withPropertyValues(
                     "jwt.secret=test-secret-key-with-at-least-32-bytes",
-                    "jwt.expiration-ms=60000"
+                    "jwt.expiration-ms=60000",
+                    "jwt.refresh-expiration-ms=604800000"
             );
 
     @Test
@@ -23,6 +24,7 @@ class JwtPropertiesTest {
             assertThat(jwtProperties.getSecret())
                     .isEqualTo("test-secret-key-with-at-least-32-bytes");
             assertThat(jwtProperties.getExpirationMs()).isEqualTo(60000L);
+            assertThat(jwtProperties.getRefreshExpirationMs()).isEqualTo(604800000L);
         });
     }
 
