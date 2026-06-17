@@ -17,7 +17,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication, refresh token, logout, user isolation, database migration, and internship query milestone.
+This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, and internship query milestone.
 
 Implemented:
 
@@ -26,6 +26,8 @@ Implemented:
 - JWT stateless authentication
 - JWT subject based on `userId`
 - Refresh token issuing, storage, refresh, and logout
+- Lightweight RBAC with `USER` and `ADMIN` roles
+- Admin-only user listing API
 - `/api/users/me` current-user endpoints
 - Password update with old password verification
 - Internship CRUD scoped to the authenticated user
@@ -60,8 +62,9 @@ Authorization: Bearer <token>
 ```
 
 11. `JwtAuthenticationFilter` parses and validates the access token.
-12. The filter creates an `Authentication` object and writes it into `SecurityContextHolder`.
-13. Controllers read the authenticated user from `Authentication`, not from request body or URL parameters.
+12. The filter loads the user role and converts it into a Spring Security authority such as `ROLE_USER` or `ROLE_ADMIN`.
+13. The filter creates an `Authentication` object and writes it into `SecurityContextHolder`.
+14. Controllers read the authenticated user from `Authentication`, not from request body or URL parameters.
 
 When the access token expires, the frontend can call:
 
@@ -99,6 +102,26 @@ and deletes the stored refresh token hash. The existing access token may still w
 | PUT | `/api/users/me` | Update current user's username/email | Yes |
 | PUT | `/api/users/me/password` | Update current user's password | Yes |
 | DELETE | `/api/users/me` | Delete current user | Yes |
+
+### Admin
+
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/admin/users` | Get all users | ADMIN |
+
+This project currently uses a lightweight RBAC model:
+
+```text
+users.role = USER | ADMIN
+```
+
+New registrations default to `USER`. To create an admin account in local development, update the role directly in the database:
+
+```sql
+UPDATE users SET role = 'ADMIN' WHERE username = 'your_admin_username';
+```
+
+For this project size, a single `role` column is enough. If roles and permissions become more complex later, this can evolve into separate `roles`, `permissions`, and `user_roles` tables.
 
 ### Internships
 
@@ -182,6 +205,9 @@ Paginated internship response:
 - Refresh tokens are generated as random opaque tokens.
 - Only refresh token hashes are stored in the database.
 - Logout invalidates the refresh token, not already-issued access tokens.
+- Users have a `USER` or `ADMIN` role.
+- Admin endpoints require `ROLE_ADMIN`.
+- Authenticated non-admin users receive `403 Forbidden` when accessing admin endpoints.
 - Protected endpoints do not trust frontend-provided `userId`.
 - Internship access uses `findByIdAndUserId(id, currentUserId)` to prevent cross-user access.
 - Missing or invalid token returns `401 Unauthorized`.
@@ -217,6 +243,14 @@ V3__create_refresh_tokens_table.sql
 
 `V3` creates `refresh_tokens` with a hashed token value, expiration time, creation time, and `user_id` foreign key.
 
+RBAC migration:
+
+```text
+V4__add_user_role.sql
+```
+
+`V4` adds `users.role`, defaulting existing and future users to `USER`.
+
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
 ### users
@@ -227,6 +261,7 @@ Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This mean
 | username | Unique username |
 | email | Unique email |
 | password | BCrypt-hashed password |
+| role | User role: `USER` or `ADMIN` |
 | created_at | User creation time |
 
 ### internships
@@ -321,6 +356,7 @@ Current backend test coverage includes:
 - `UserControllerTest`: user endpoint responses and exception mapping
 - `InternshipControllerTest`: internship query parameters and invalid request parameter handling
 - `AuthServiceTest`: refresh token hashing, access token refresh, expiration handling, and logout
+- `AdminControllerTest`: admin response shape and password hiding
 
 ## Apifox Regression Tests
 
@@ -373,10 +409,12 @@ The collection covers:
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was implemented by deleting the stored refresh token hash.
+- Lightweight RBAC was added with `USER` and `ADMIN` roles.
+- Admin-only endpoints are separated under `/api/admin/**`.
 
 ## Next Improvements
 
 - Add `updatedAt` fields.
 - Add stronger password validation.
-- Add role-based authorization.
+- Add GitHub Actions CI.
 - Improve README with screenshots and request examples as the frontend grows.

@@ -61,3 +61,4 @@ Do not start directly from `01 Register User A`, because `00 Initialize Test Dat
 - Logout deletes the refresh token. The current access token may still work until it expires because access JWTs are stateless.
 - Test data uses timestamp-based usernames/emails, so repeated runs do not collide with previous database rows.
 - Apifox script style uses Postman-compatible `pm.*` APIs.
+- Admin RBAC is documented separately in `admin-rbac-manual.md` because the default regression flow only creates normal `USER` accounts.

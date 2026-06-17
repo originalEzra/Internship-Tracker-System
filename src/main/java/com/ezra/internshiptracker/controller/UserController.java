@@ -48,6 +48,7 @@ public class UserController {
         response.setId(user.getId());
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
+        response.setRole(user.getRole());
         response.setCreatedAt(user.getCreatedAt());
         return response;
     }
