@@ -2,6 +2,7 @@ package com.ezra.internshiptracker.service;
 
 import com.ezra.internshiptracker.dto.user.LoginRequest;
 import com.ezra.internshiptracker.entity.Internship;
+import com.ezra.internshiptracker.entity.Role;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.DuplicateUserException;
 import com.ezra.internshiptracker.exception.InvalidPasswordException;
@@ -60,6 +61,7 @@ class UserServiceTest {
         User savedUser = userService.createUser(user);
 
         assertThat(savedUser.getPassword()).isEqualTo("encoded-password");
+        assertThat(savedUser.getRole()).isEqualTo(Role.USER);
         verify(passwordEncoder).encode("raw-password");
         verify(userRepository).save(user);
     }

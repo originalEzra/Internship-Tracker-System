@@ -5,6 +5,7 @@ import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
 import com.ezra.internshiptracker.exception.LoginFailedException;
 import com.ezra.internshiptracker.service.AuthService;
 import com.ezra.internshiptracker.service.UserService;
+import com.ezra.internshiptracker.entity.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -60,6 +61,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.id").value(1))
                 .andExpect(jsonPath("$.data.username").value("ezra"))
                 .andExpect(jsonPath("$.data.email").value("ezra@example.com"))
+                .andExpect(jsonPath("$.data.role").value("USER"))
                 .andExpect(jsonPath("$.data.password").doesNotExist());
     }
 
@@ -84,6 +86,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.message").value("Login successful"))
                 .andExpect(jsonPath("$.data.token").value("jwt-token"))
                 .andExpect(jsonPath("$.data.refreshToken").value("refresh-token"))
+                .andExpect(jsonPath("$.data.user.role").value("USER"))
                 .andExpect(jsonPath("$.data.user.id").value(1));
     }
 
@@ -180,6 +183,7 @@ class UserControllerTest {
         user.setId(id);
         user.setUsername(username);
         user.setEmail(email);
+        user.setRole(Role.USER);
         user.setCreatedAt(LocalDateTime.now());
         return user;
     }

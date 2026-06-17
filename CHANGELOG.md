@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-06-17 - Lightweight RBAC Milestone
+
+### Added
+
+- `Role` enum with `USER` and `ADMIN`.
+- `users.role` database column through `V4__add_user_role.sql`.
+- Role field in `User` entity and `UserResponse`.
+- Admin-only endpoint: `GET /api/admin/users`.
+- `@EnableMethodSecurity` and `@PreAuthorize("hasRole('ADMIN')")` for method-level authorization.
+- `JwtAuthenticationFilter` now loads the current user's role and creates `ROLE_USER` or `ROLE_ADMIN` authorities.
+- JSON `403 Forbidden` response for authenticated users without enough authority.
+- Tests for role authorities and admin user response shape.
+
+### Changed
+
+- New users default to the `USER` role.
+- JWT still stores only `userId`; role is loaded from the database during authentication.
+- README documents the lightweight RBAC choice and how to promote a local user to `ADMIN`.
+
+### Verified
+
+- `./mvnw test` passes.
+- 36 backend tests run successfully with 0 failures.
+
 ## 2026-06-16 - Refresh Token and Logout Milestone
 
 ### Added

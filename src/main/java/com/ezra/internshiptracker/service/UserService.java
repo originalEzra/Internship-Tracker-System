@@ -1,5 +1,6 @@
 package com.ezra.internshiptracker.service;
 
+import com.ezra.internshiptracker.entity.Role;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.repository.InternshipRepository;
 import com.ezra.internshiptracker.repository.RefreshTokenRepository;
@@ -15,6 +16,8 @@ import com.ezra.internshiptracker.dto.user.LoginRequest;
 import com.ezra.internshiptracker.exception.DuplicateUserException;
 import com.ezra.internshiptracker.exception.InvalidPasswordException;
 import com.ezra.internshiptracker.exception.LoginFailedException;
+
+import java.util.List;
 
 @Service
 public class UserService {
@@ -52,6 +55,10 @@ public class UserService {
 
         if (userRepository.existsByEmail(user.getEmail())) {
             throw new DuplicateUserException("Email already exists");
+        }
+
+        if (user.getRole() == null) {
+            user.setRole(Role.USER);
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
@@ -114,5 +121,9 @@ public class UserService {
         }
 
         return user;
+    }
+
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
     }
 }
