@@ -326,6 +326,54 @@ Profiles:
 
 ## Local Setup
 
+### Option A: Docker Compose MySQL
+
+Create a local `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Start MySQL:
+
+```bash
+docker compose up -d mysql
+```
+
+This starts a MySQL 8.4 container on local port `3307` by default:
+
+```text
+jdbc:mysql://localhost:3307/internship_tracker?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+```
+
+Load the `.env` variables into the current terminal:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Run the app:
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+Stop the database:
+
+```bash
+docker compose down
+```
+
+Remove the local database volume if you want a completely fresh database:
+
+```bash
+docker compose down -v
+```
+
+### Option B: Existing Local MySQL
+
 Create a MySQL database:
 
 ```sql
@@ -347,6 +395,12 @@ Run the app:
 
 ```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+If you run the app from IntelliJ IDEA, put these values in the run configuration's environment variables:
+
+```text
+DB_URL=jdbc:mysql://localhost:3307/internship_tracker?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true;DB_USERNAME=root;DB_PASSWORD=local_dev_password;JWT_SECRET=replace-with-at-least-32-byte-secret-key;JWT_EXPIRATION_MS=3600000;JWT_REFRESH_EXPIRATION_MS=604800000
 ```
 
 The application starts on:
@@ -458,23 +512,20 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Admin-only endpoints are separated under `/api/admin/**`.
 - Spring Boot 4 Flyway integration required `spring-boot-starter-flyway`, not only raw `flyway-core`.
 - Testcontainers was added so integration tests can run against a temporary real MySQL database instead of depending on a developer's local database.
+- Docker Compose was added so local development can start a reproducible MySQL database without manually creating tables or relying on a developer-specific database setup.
 
 ## Next Improvements
 
 Recommended next steps:
 
-1. Add Docker Compose for local development.
-   - Provide a reproducible local MySQL setup.
-   - Reduce the manual steps for creating a database and setting connection variables.
-
-2. Add Redis for advanced authentication behavior.
+1. Add Redis for advanced authentication behavior.
    - Token blacklist for access-token logout.
    - Login rate limiting for basic brute-force protection.
 
-3. Add `updatedAt`.
+2. Add `updatedAt`.
    - Track when internship records are modified.
    - Useful for sorting and audit-style display later.
 
-4. Add stronger password validation.
+3. Add stronger password validation.
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
