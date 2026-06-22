@@ -10,8 +10,10 @@ import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
 import com.ezra.internshiptracker.repository.InternshipRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -106,6 +108,65 @@ class InternshipServiceTest {
         assertThat(internships.getContent()).hasSize(1);
         verify(internshipRepository)
                 .searchMyInternships(eq(1L), eq(InternshipStatus.APPLIED), eq("open"), any(Pageable.class));
+    }
+
+    @Test
+    void getMyInternshipsClampsInvalidPageAndSizeValues() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        internshipService.getMyInternships(1L, -5, 500, null, null, "createdAt,desc");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(null), eq(null), pageableCaptor.capture());
+
+        Pageable pageable = pageableCaptor.getValue();
+        assertThat(pageable.getPageNumber()).isZero();
+        assertThat(pageable.getPageSize()).isEqualTo(100);
+    }
+
+    @Test
+    void getMyInternshipsDefaultsInvalidSortFieldToCreatedAt() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        internshipService.getMyInternships(1L, 0, 10, null, null, "password,asc");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(null), eq(null), pageableCaptor.capture());
+
+        Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("createdAt");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
+    }
+
+    @Test
+    void getMyInternshipsDefaultsInvalidSortDirectionToDescending() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        internshipService.getMyInternships(1L, 0, 10, null, null, "company,sideways");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(null), eq(null), pageableCaptor.capture());
+
+        Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("company");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    void getMyInternshipsTreatsBlankKeywordAsNoSearch() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        internshipService.getMyInternships(1L, 0, 10, null, "   ", "createdAt,desc");
+
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class));
     }
 
     @Test
