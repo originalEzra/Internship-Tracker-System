@@ -14,6 +14,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 - Bean Validation
 - Maven
 - Apifox regression tests
+- Testcontainers MySQL integration tests
 
 ## Current Milestone
 
@@ -39,6 +40,7 @@ Implemented:
 - 401 response for unauthenticated requests
 - Apifox regression collection covering the full login and internship flow
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
+- Testcontainers integration test covering Flyway, JWT, JPA, MySQL, and RBAC in a real containerized database
 - Environment-based configuration with Spring profiles for development and testing
 - Flyway database migrations for users and internships schema management
 - Paginated, searchable, filterable, and sortable internship list API
@@ -137,11 +139,11 @@ For this project size, a single `role` column is enough. If roles and permission
 
 | Query Parameter | Description | Example |
 | --- | --- | --- |
-| `page` | Zero-based page number | `0` |
-| `size` | Page size, capped at 100 | `10` |
-| `status` | Optional internship status filter | `APPLIED` |
-| `keyword` | Optional search keyword for company or position | `google` |
-| `sort` | Sort field and direction | `createdAt,desc` |
+| `page` | Zero-based page number. Negative values are treated as `0`. | `0` |
+| `size` | Page size. Values below `1` become `1`; values above `100` become `100`. | `10` |
+| `status` | Optional internship status filter. Invalid enum values return `400`. | `APPLIED` |
+| `keyword` | Optional search keyword for company or position. Blank values are treated as no search. | `google` |
+| `sort` | Sort field and direction. Invalid sort fields fall back to `createdAt`. | `createdAt,desc` |
 
 Allowed sort fields:
 
@@ -149,6 +151,13 @@ Allowed sort fields:
 - `company`
 - `position`
 - `status`
+
+Allowed sort directions:
+
+- `asc`
+- `desc`
+
+Any direction other than `asc` is treated as `desc`.
 
 Example:
 
@@ -338,15 +347,37 @@ Run the app:
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+The application starts on:
+
+```text
+http://localhost:8080
+```
+
+Health check:
+
+```http
+GET /api/health
+```
+
 For an existing local database that was created before Flyway was introduced, `spring.flyway.baseline-on-migrate=true` is enabled in the dev profile. This lets Flyway create its schema history table without trying to recreate existing tables.
 
-Run compile/tests:
+## Testing
+
+Run all backend tests:
 
 ```bash
 ./mvnw test
 ```
 
-Current backend test coverage includes:
+Run only the Testcontainers integration test:
+
+```bash
+./mvnw -Dtest=ApplicationIntegrationTest test
+```
+
+Docker Desktop must be running for the Testcontainers test because it starts a temporary MySQL container.
+
+Current backend test coverage:
 
 - `UserServiceTest`: registration, duplicate users, login, password update, account deletion
 - `InternshipServiceTest`: current-user scoped internship CRUD, pagination, filtering, and keyword search
@@ -357,6 +388,16 @@ Current backend test coverage includes:
 - `InternshipControllerTest`: internship query parameters and invalid request parameter handling
 - `AuthServiceTest`: refresh token hashing, access token refresh, expiration handling, and logout
 - `AdminControllerTest`: admin response shape and password hiding
+- `ApplicationIntegrationTest`: real MySQL container, Flyway migration, register/login, JWT-protected internship APIs, USER 403, ADMIN 200
+
+Test strategy:
+
+| Test Type | Purpose |
+| --- | --- |
+| Mockito unit tests | Fast checks for service/filter/controller behavior without real infrastructure |
+| MockMvc controller tests | Verify request/response shape and exception mapping |
+| Testcontainers integration test | Verify real Spring Boot + MySQL + Flyway + JPA + Security/JWT/RBAC chain |
+| Apifox regression tests | Verify the API manually or semi-automatically from a client user's point of view |
 
 ## Apifox Regression Tests
 
@@ -393,6 +434,8 @@ The collection covers:
 - logout and refresh-token reuse failure
 - delete current user
 
+Apifox does not need to know about Testcontainers. Testcontainers is for backend automated tests, while Apifox is for HTTP regression testing against a running app.
+
 ## Important Problems Solved
 
 - Login was blocked by Spring Security before `/api/users/login` was properly permitted.
@@ -411,10 +454,30 @@ The collection covers:
 - Logout was implemented by deleting the stored refresh token hash.
 - Lightweight RBAC was added with `USER` and `ADMIN` roles.
 - Admin-only endpoints are separated under `/api/admin/**`.
+- Spring Boot 4 Flyway integration required `spring-boot-starter-flyway`, not only raw `flyway-core`.
+- Testcontainers was added so integration tests can run against a temporary real MySQL database instead of depending on a developer's local database.
 
 ## Next Improvements
 
-- Add `updatedAt` fields.
-- Add stronger password validation.
-- Add GitHub Actions CI.
-- Improve README with screenshots and request examples as the frontend grows.
+Recommended next steps:
+
+1. Add GitHub Actions CI.
+   - Run `./mvnw test` automatically on every pull request.
+   - This gives value immediately because the project now has unit tests and Testcontainers integration coverage.
+
+2. Strengthen internship query boundary handling.
+   - Document allowed `status`, `sort`, `page`, and `size` behavior.
+   - Add tests for invalid `status`, invalid sort field, negative page, and oversized size.
+   - This is useful, but it should stay small because the current pagination/filter/sort feature already works.
+
+3. Add Docker Compose for local development.
+   - Provide a reproducible local MySQL setup.
+   - Reduce the manual steps for creating a database and setting connection variables.
+
+4. Add Redis for advanced authentication behavior.
+   - Token blacklist for access-token logout.
+   - Login rate limiting for basic brute-force protection.
+
+5. Add `updatedAt`.
+   - Track when internship records are modified.
+   - Useful for sorting and audit-style display later.
