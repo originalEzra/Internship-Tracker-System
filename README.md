@@ -41,9 +41,11 @@ Implemented:
 - Apifox regression collection covering the full login and internship flow
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
 - Testcontainers integration test covering Flyway, JWT, JPA, MySQL, and RBAC in a real containerized database
+- GitHub Actions CI for running backend tests on pushes and pull requests
 - Environment-based configuration with Spring profiles for development and testing
 - Flyway database migrations for users and internships schema management
 - Paginated, searchable, filterable, and sortable internship list API
+- Query boundary tests for invalid status, invalid page type, page/size normalization, blank keyword, and sort fallback behavior
 - Enum-based internship status values: `APPLIED`, `INTERVIEW`, `OFFER`, `REJECTED`
 
 ## Authentication Flow
@@ -380,7 +382,7 @@ Docker Desktop must be running for the Testcontainers test because it starts a t
 Current backend test coverage:
 
 - `UserServiceTest`: registration, duplicate users, login, password update, account deletion
-- `InternshipServiceTest`: current-user scoped internship CRUD, pagination, filtering, and keyword search
+- `InternshipServiceTest`: current-user scoped internship CRUD, pagination, filtering, keyword search, page/size normalization, and sort fallback behavior
 - `JwtUtilTest`: JWT generation, validation, and userId extraction
 - `JwtAuthenticationFilterTest`: SecurityContext authentication setup
 - `JwtPropertiesTest`: JWT property binding
@@ -461,23 +463,18 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 
 Recommended next steps:
 
-1. Add GitHub Actions CI.
-   - Run `./mvnw test` automatically on every pull request.
-   - This gives value immediately because the project now has unit tests and Testcontainers integration coverage.
-
-2. Strengthen internship query boundary handling.
-   - Document allowed `status`, `sort`, `page`, and `size` behavior.
-   - Add tests for invalid `status`, invalid sort field, negative page, and oversized size.
-   - This is useful, but it should stay small because the current pagination/filter/sort feature already works.
-
-3. Add Docker Compose for local development.
+1. Add Docker Compose for local development.
    - Provide a reproducible local MySQL setup.
    - Reduce the manual steps for creating a database and setting connection variables.
 
-4. Add Redis for advanced authentication behavior.
+2. Add Redis for advanced authentication behavior.
    - Token blacklist for access-token logout.
    - Login rate limiting for basic brute-force protection.
 
-5. Add `updatedAt`.
+3. Add `updatedAt`.
    - Track when internship records are modified.
    - Useful for sorting and audit-style display later.
+
+4. Add stronger password validation.
+   - Require longer passwords or mixed character types.
+   - Return clear validation messages for weak passwords.

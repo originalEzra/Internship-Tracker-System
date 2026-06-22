@@ -89,4 +89,14 @@ class InternshipControllerTest {
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("Invalid request parameter"));
     }
+
+    @Test
+    void invalidPageParameterReturns400ApiResponse() throws Exception {
+        mockMvc.perform(get("/api/internships")
+                        .principal(new TestingAuthenticationToken("1", null))
+                        .param("page", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Invalid request parameter"));
+    }
 }
