@@ -26,6 +26,18 @@
       "value": ""
     },
     {
+      "key": "internshipCreatedAt",
+      "value": ""
+    },
+    {
+      "key": "internshipUpdatedAt",
+      "value": ""
+    },
+    {
+      "key": "internshipUpdatedAtAfterUpdate",
+      "value": ""
+    },
+    {
       "key": "userAUsername",
       "value": ""
     },
@@ -104,6 +116,9 @@
               "pm.collectionVariables.set('newToken', '');",
               "pm.collectionVariables.set('userId', '');",
               "pm.collectionVariables.set('internshipId', '');",
+              "pm.collectionVariables.set('internshipCreatedAt', '');",
+              "pm.collectionVariables.set('internshipUpdatedAt', '');",
+              "pm.collectionVariables.set('internshipUpdatedAtAfterUpdate', '');",
               "pm.collectionVariables.set('userBToken', '');",
               "pm.collectionVariables.set('userAUsername', 'apifox_user_a_' + runId);",
               "pm.collectionVariables.set('userAEmail', 'apifox_user_a_' + runId + '@example.com');",
@@ -482,8 +497,12 @@
               "  const json = pm.response.json();",
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.id).to.be.a('number');",
+              "  pm.expect(json.data.createdAt).to.be.a('string');",
+              "  pm.expect(json.data.updatedAt).to.be.a('string');",
               "  pm.expect(json.data.userId).to.eql(undefined);",
               "  pm.collectionVariables.set('internshipId', json.data.id);",
+              "  pm.collectionVariables.set('internshipCreatedAt', json.data.createdAt);",
+              "  pm.collectionVariables.set('internshipUpdatedAt', json.data.updatedAt);",
               "});"
             ]
           }
@@ -500,7 +519,7 @@
             "value": "Bearer {{token}}"
           }
         ],
-        "url": "{{baseUrl}}/api/internships?page=0&size=10&status=APPLIED&keyword=Apifox&sort=createdAt,desc"
+        "url": "{{baseUrl}}/api/internships?page=0&size=10&status=APPLIED&keyword=Apifox&sort=updatedAt,desc"
       },
       "event": [
         {
@@ -514,8 +533,9 @@
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.content).to.be.an('array');",
               "  const internshipId = Number(pm.collectionVariables.get('internshipId'));",
-              "  const found = json.data.content.some(item => item.id === internshipId);",
-              "  pm.expect(found).to.eql(true);",
+              "  const item = json.data.content.find(item => item.id === internshipId);",
+              "  pm.expect(item).to.not.eql(undefined);",
+              "  pm.expect(item.updatedAt).to.be.a('string');",
               "});"
             ]
           }
@@ -583,6 +603,9 @@
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('internshipId')));",
               "  pm.expect(json.data.company).to.eql('Apifox Company Updated');",
+              "  pm.expect(json.data.createdAt).to.eql(pm.collectionVariables.get('internshipCreatedAt'));",
+              "  pm.expect(json.data.updatedAt).to.be.a('string');",
+              "  pm.collectionVariables.set('internshipUpdatedAtAfterUpdate', json.data.updatedAt);",
               "});"
             ]
           }

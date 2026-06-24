@@ -26,8 +26,11 @@ pm.test("create internship success", function () {
   const json = pm.response.json();
   pm.expect(json.code).to.eql(200);
   pm.expect(json.data.id).to.be.a("number");
+  pm.expect(json.data.createdAt).to.be.a("string");
+  pm.expect(json.data.updatedAt).to.be.a("string");
   pm.expect(json.data.userId).to.eql(undefined);
-  pm.environment.set("internshipId", json.data.id);
+  pm.collectionVariables.set("internshipId", json.data.id);
+  pm.collectionVariables.set("internshipCreatedAt", json.data.createdAt);
+  pm.collectionVariables.set("internshipUpdatedAt", json.data.updatedAt);
 });
 ```
-

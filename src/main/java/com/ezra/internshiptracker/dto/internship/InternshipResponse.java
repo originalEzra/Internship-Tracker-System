@@ -21,4 +21,6 @@ public class InternshipResponse {
     private String applicationUrl;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
 }

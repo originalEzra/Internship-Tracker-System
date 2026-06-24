@@ -20,6 +20,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +59,8 @@ class InternshipServiceTest {
 
         assertThat(response.getId()).isEqualTo(10L);
         assertThat(response.getCompany()).isEqualTo("OpenAI");
+        assertThat(response.getCreatedAt()).isNotNull();
+        assertThat(response.getUpdatedAt()).isEqualTo(response.getCreatedAt());
         verify(internshipRepository).save(any(Internship.class));
     }
 
@@ -172,6 +175,8 @@ class InternshipServiceTest {
     @Test
     void updateInternshipRequiresOwnership() {
         Internship internship = internship();
+        LocalDateTime previousUpdatedAt = LocalDateTime.of(2026, 1, 1, 12, 0);
+        internship.setUpdatedAt(previousUpdatedAt);
 
         when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
         when(internshipRepository.save(internship)).thenReturn(internship);
@@ -180,7 +185,24 @@ class InternshipServiceTest {
 
         assertThat(response.getCompany()).isEqualTo("Anthropic");
         assertThat(response.getPosition()).isEqualTo("Backend Intern");
+        assertThat(response.getUpdatedAt()).isAfter(previousUpdatedAt);
         verify(internshipRepository).findByIdAndUserId(10L, 1L);
+    }
+
+    @Test
+    void getMyInternshipsAllowsUpdatedAtSortField() {
+        when(internshipRepository.searchMyInternships(eq(1L), eq(null), eq(null), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(internship())));
+
+        internshipService.getMyInternships(1L, 0, 10, null, null, "updatedAt,asc");
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(internshipRepository)
+                .searchMyInternships(eq(1L), eq(null), eq(null), pageableCaptor.capture());
+
+        Sort.Order order = pageableCaptor.getValue().getSort().getOrderFor("updatedAt");
+        assertThat(order).isNotNull();
+        assertThat(order.getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 
     @Test
@@ -202,6 +224,8 @@ class InternshipServiceTest {
         internship.setLocation("Sydney");
         internship.setStatus(InternshipStatus.APPLIED);
         internship.setApplicationUrl("https://example.com");
+        internship.setCreatedAt(LocalDateTime.of(2026, 1, 1, 10, 0));
+        internship.setUpdatedAt(LocalDateTime.of(2026, 1, 1, 10, 0));
         return internship;
     }
 

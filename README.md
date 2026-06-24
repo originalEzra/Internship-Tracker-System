@@ -20,7 +20,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, and Redis-backed auth hardening milestone.
+This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, and `updatedAt` tracking milestone.
 
 Implemented:
 
@@ -51,6 +51,7 @@ Implemented:
 - Paginated, searchable, filterable, and sortable internship list API
 - Query boundary tests for invalid status, invalid page type, page/size normalization, blank keyword, and sort fallback behavior
 - Enum-based internship status values: `APPLIED`, `INTERVIEW`, `OFFER`, `REJECTED`
+- `updatedAt` tracking for internship records
 
 ## Authentication Flow
 
@@ -152,11 +153,12 @@ For this project size, a single `role` column is enough. If roles and permission
 | `size` | Page size. Values below `1` become `1`; values above `100` become `100`. | `10` |
 | `status` | Optional internship status filter. Invalid enum values return `400`. | `APPLIED` |
 | `keyword` | Optional search keyword for company or position. Blank values are treated as no search. | `google` |
-| `sort` | Sort field and direction. Invalid sort fields fall back to `createdAt`. | `createdAt,desc` |
+| `sort` | Sort field and direction. Invalid sort fields fall back to `createdAt`. | `updatedAt,desc` |
 
 Allowed sort fields:
 
 - `createdAt`
+- `updatedAt`
 - `company`
 - `position`
 - `status`
@@ -171,7 +173,7 @@ Any direction other than `asc` is treated as `desc`.
 Example:
 
 ```http
-GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=createdAt,desc
+GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=updatedAt,desc
 Authorization: Bearer <token>
 ```
 
@@ -270,6 +272,14 @@ V4__add_user_role.sql
 
 `V4` adds `users.role`, defaulting existing and future users to `USER`.
 
+Internship updated timestamp migration:
+
+```text
+V5__add_updated_at_to_internships.sql
+```
+
+`V5` adds `internships.updated_at` and backfills existing rows from `created_at` or the current timestamp.
+
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
 ### users
@@ -294,6 +304,7 @@ Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This mean
 | status | Application status |
 | application_url | Application link |
 | created_at | Creation time |
+| updated_at | Last update time |
 | user_id | Foreign key to users.id |
 
 ## Configuration
@@ -460,7 +471,7 @@ Docker Desktop must be running for the Testcontainers test because it starts tem
 Current backend test coverage:
 
 - `UserServiceTest`: registration, duplicate users, login, password update, account deletion
-- `InternshipServiceTest`: current-user scoped internship CRUD, pagination, filtering, keyword search, page/size normalization, and sort fallback behavior
+- `InternshipServiceTest`: current-user scoped internship CRUD, `updatedAt` tracking, pagination, filtering, keyword search, page/size normalization, and sort fallback behavior
 - `JwtUtilTest`: JWT generation, validation, and userId extraction
 - `JwtAuthenticationFilterTest`: SecurityContext authentication setup
 - `JwtPropertiesTest`: JWT property binding
@@ -507,7 +518,7 @@ The collection covers:
 - change password
 - old password login failure
 - create internship
-- get current user's internships with pagination, status filter, keyword search, and sorting
+- get current user's internships with pagination, status filter, keyword search, and sorting by `updatedAt`
 - update own internship
 - delete own internship
 - no-token 401
@@ -532,6 +543,7 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Database schema management was moved from Hibernate auto-update to Flyway migrations.
 - Internship list queries were upgraded from returning a raw list to returning a paginated `PageResponse`.
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
+- Internship records now track `updatedAt`, so APIs can expose and sort by last modified time.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was first implemented by deleting the stored refresh token hash.
 - Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
@@ -546,13 +558,13 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 
 Recommended next steps:
 
-1. Add `updatedAt`.
-   - Track when internship records are modified.
-   - Useful for sorting and audit-style display later.
-
-2. Add stronger password validation.
+1. Add stronger password validation.
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
+
+2. Add internship status machine and status history.
+   - Restrict invalid status transitions.
+   - Record status changes for audit-style timelines.
 
 3. Consider Redis caching only if a read-heavy endpoint appears.
    - Current Redis usage is for security state, not ordinary response caching.
