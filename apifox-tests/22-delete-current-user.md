@@ -1,4 +1,4 @@
-# 20 Delete Current User
+# 22 Delete Current User
 
 Use this at the very end because it deletes the test user.
 

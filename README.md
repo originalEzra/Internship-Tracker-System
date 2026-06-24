@@ -9,16 +9,18 @@ Spring Boot backend for tracking internship applications with JWT authentication
 - Spring Web MVC
 - Spring Security
 - Spring Data JPA
+- Spring Data Redis
 - MySQL
+- Redis
 - JWT with `jjwt`
 - Bean Validation
 - Maven
 - Apifox regression tests
-- Testcontainers MySQL integration tests
+- Testcontainers MySQL and Redis integration tests
 
 ## Current Milestone
 
-This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, and internship query milestone.
+This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, and Redis-backed auth hardening milestone.
 
 Implemented:
 
@@ -27,6 +29,8 @@ Implemented:
 - JWT stateless authentication
 - JWT subject based on `userId`
 - Refresh token issuing, storage, refresh, and logout
+- Redis-backed access token blacklist on logout
+- Redis-backed login failure rate limiting
 - Lightweight RBAC with `USER` and `ADMIN` roles
 - Admin-only user listing API
 - `/api/users/me` current-user endpoints
@@ -40,7 +44,7 @@ Implemented:
 - 401 response for unauthenticated requests
 - Apifox regression collection covering the full login and internship flow
 - JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
-- Testcontainers integration test covering Flyway, JWT, JPA, MySQL, and RBAC in a real containerized database
+- Testcontainers integration test covering Flyway, JWT, JPA, MySQL, Redis, and RBAC in real containers
 - GitHub Actions CI for running backend tests on pushes and pull requests
 - Environment-based configuration with Spring profiles for development and testing
 - Flyway database migrations for users and internships schema management
@@ -82,9 +86,12 @@ Logout calls:
 
 ```http
 POST /api/users/logout
+Authorization: Bearer <access-token>
 ```
 
-and deletes the stored refresh token hash. The existing access token may still work until it expires because JWT access tokens are stateless.
+and deletes the stored refresh token hash. If the request includes the current `Authorization` header, the backend also stores a hash of the access token in Redis until the token's original expiration time. That gives this otherwise stateless JWT an active logout mechanism.
+
+Login failures are also tracked in Redis. After too many failed attempts for the same username within the configured window, the login endpoint returns `429 Too Many Requests`.
 
 ## API Overview
 
@@ -101,7 +108,7 @@ and deletes the stored refresh token hash. The existing access token may still w
 | POST | `/api/users` | Register user | No |
 | POST | `/api/users/login` | Login and receive access/refresh tokens | No |
 | POST | `/api/users/refresh-token` | Use refresh token to receive a new access token | No |
-| POST | `/api/users/logout` | Delete refresh token so it cannot be reused | No |
+| POST | `/api/users/logout` | Delete refresh token and blacklist current access token when provided | No |
 | GET | `/api/users/me` | Get current user | Yes |
 | PUT | `/api/users/me` | Update current user's username/email | Yes |
 | PUT | `/api/users/me/password` | Update current user's password | Yes |
@@ -215,7 +222,8 @@ Paginated internship response:
 - JWT uses `userId` as subject because `username` can change.
 - Refresh tokens are generated as random opaque tokens.
 - Only refresh token hashes are stored in the database.
-- Logout invalidates the refresh token, not already-issued access tokens.
+- Logout invalidates the refresh token and blacklists the current access token when the request includes `Authorization: Bearer <token>`.
+- Login failures are counted in Redis with a TTL to reduce brute-force login attempts.
 - Users have a `USER` or `ADMIN` role.
 - Admin endpoints require `ROLE_ADMIN`.
 - Authenticated non-admin users receive `403 Forbidden` when accessing admin endpoints.
@@ -300,6 +308,15 @@ Common JWT settings:
 | `JWT_EXPIRATION_MS` | Access token expiration time in milliseconds | `3600000` |
 | `JWT_REFRESH_EXPIRATION_MS` | Refresh token expiration time in milliseconds | `604800000` |
 
+Redis-backed auth hardening settings:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `REDIS_HOST` | Redis host used by the dev profile | `localhost` |
+| `REDIS_PORT` | Redis port used by the dev profile | `6380` |
+| `LOGIN_MAX_FAILED_ATTEMPTS` | Failed login attempts allowed inside one window | `5` |
+| `LOGIN_RATE_LIMIT_WINDOW_MINUTES` | Login failure counting window in minutes | `15` |
+
 Development profile database settings:
 
 | Variable | Description | Default |
@@ -326,7 +343,7 @@ Profiles:
 
 ## Local Setup
 
-### Option A: Docker Compose MySQL
+### Option A: Docker Compose MySQL + Redis
 
 Create a local `.env` file:
 
@@ -334,16 +351,17 @@ Create a local `.env` file:
 cp .env.example .env
 ```
 
-Start MySQL:
+Start MySQL and Redis:
 
 ```bash
-docker compose up -d mysql
+docker compose up -d mysql redis
 ```
 
-This starts a MySQL 8.4 container on local port `3307` by default:
+This starts a MySQL 8.4 container on local port `3307` and a Redis 7 container on local port `6380` by default:
 
 ```text
 jdbc:mysql://localhost:3307/internship_tracker?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+redis://localhost:6380
 ```
 
 Load the `.env` variables into the current terminal:
@@ -403,6 +421,12 @@ If you run the app from IntelliJ IDEA, put these values in the run configuration
 DB_URL=jdbc:mysql://localhost:3307/internship_tracker?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true;DB_USERNAME=root;DB_PASSWORD=local_dev_password;JWT_SECRET=replace-with-at-least-32-byte-secret-key;JWT_EXPIRATION_MS=3600000;JWT_REFRESH_EXPIRATION_MS=604800000
 ```
 
+If you are running Redis from Docker Compose, also include:
+
+```text
+REDIS_HOST=localhost;REDIS_PORT=6380;LOGIN_MAX_FAILED_ATTEMPTS=5;LOGIN_RATE_LIMIT_WINDOW_MINUTES=15
+```
+
 The application starts on:
 
 ```text
@@ -431,7 +455,7 @@ Run only the Testcontainers integration test:
 ./mvnw -Dtest=ApplicationIntegrationTest test
 ```
 
-Docker Desktop must be running for the Testcontainers test because it starts a temporary MySQL container.
+Docker Desktop must be running for the Testcontainers test because it starts temporary MySQL and Redis containers.
 
 Current backend test coverage:
 
@@ -442,9 +466,11 @@ Current backend test coverage:
 - `JwtPropertiesTest`: JWT property binding
 - `UserControllerTest`: user endpoint responses and exception mapping
 - `InternshipControllerTest`: internship query parameters and invalid request parameter handling
-- `AuthServiceTest`: refresh token hashing, access token refresh, expiration handling, and logout
+- `AuthServiceTest`: refresh token hashing, access token refresh, expiration handling, logout, and access token blacklist call
+- `TokenBlacklistServiceTest`: Redis-backed access token blacklist key and TTL behavior
+- `LoginRateLimitServiceTest`: Redis-backed failed login counting, clearing, and lockout behavior
 - `AdminControllerTest`: admin response shape and password hiding
-- `ApplicationIntegrationTest`: real MySQL container, Flyway migration, register/login, JWT-protected internship APIs, USER 403, ADMIN 200
+- `ApplicationIntegrationTest`: real MySQL and Redis containers, Flyway migration, register/login, JWT-protected internship APIs, USER 403, ADMIN 200, and access-token blacklist after logout
 
 Test strategy:
 
@@ -452,7 +478,7 @@ Test strategy:
 | --- | --- |
 | Mockito unit tests | Fast checks for service/filter/controller behavior without real infrastructure |
 | MockMvc controller tests | Verify request/response shape and exception mapping |
-| Testcontainers integration test | Verify real Spring Boot + MySQL + Flyway + JPA + Security/JWT/RBAC chain |
+| Testcontainers integration test | Verify real Spring Boot + MySQL + Redis + Flyway + JPA + Security/JWT/RBAC chain |
 | Apifox regression tests | Verify the API manually or semi-automatically from a client user's point of view |
 
 ## Apifox Regression Tests
@@ -487,7 +513,7 @@ The collection covers:
 - no-token 401
 - duplicate register 400
 - cross-user internship isolation
-- logout and refresh-token reuse failure
+- logout, access-token blacklist, and refresh-token reuse failure
 - delete current user
 
 Apifox does not need to know about Testcontainers. Testcontainers is for backend automated tests, while Apifox is for HTTP regression testing against a running app.
@@ -507,25 +533,27 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Internship list queries were upgraded from returning a raw list to returning a paginated `PageResponse`.
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
-- Logout was implemented by deleting the stored refresh token hash.
+- Logout was first implemented by deleting the stored refresh token hash.
+- Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
+- Redis login failure rate limiting was added so repeated wrong-password attempts return `429 Too Many Requests`.
 - Lightweight RBAC was added with `USER` and `ADMIN` roles.
 - Admin-only endpoints are separated under `/api/admin/**`.
 - Spring Boot 4 Flyway integration required `spring-boot-starter-flyway`, not only raw `flyway-core`.
-- Testcontainers was added so integration tests can run against a temporary real MySQL database instead of depending on a developer's local database.
-- Docker Compose was added so local development can start a reproducible MySQL database without manually creating tables or relying on a developer-specific database setup.
+- Testcontainers was added so integration tests can run against temporary real MySQL and Redis containers instead of depending on a developer's local database.
+- Docker Compose was added so local development can start reproducible MySQL and Redis services without manually creating tables or relying on a developer-specific database setup.
 
 ## Next Improvements
 
 Recommended next steps:
 
-1. Add Redis for advanced authentication behavior.
-   - Token blacklist for access-token logout.
-   - Login rate limiting for basic brute-force protection.
-
-2. Add `updatedAt`.
+1. Add `updatedAt`.
    - Track when internship records are modified.
    - Useful for sorting and audit-style display later.
 
-3. Add stronger password validation.
+2. Add stronger password validation.
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
+
+3. Consider Redis caching only if a read-heavy endpoint appears.
+   - Current Redis usage is for security state, not ordinary response caching.
+   - Caching `/api/users/me` or small lookup data is optional and should be added only when it solves a real performance problem.

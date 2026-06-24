@@ -25,14 +25,17 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final JwtProperties jwtProperties;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final TokenBlacklistService tokenBlacklistService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthService(JwtUtil jwtUtil,
                        JwtProperties jwtProperties,
-                       RefreshTokenRepository refreshTokenRepository) {
+                       RefreshTokenRepository refreshTokenRepository,
+                       TokenBlacklistService tokenBlacklistService) {
         this.jwtUtil = jwtUtil;
         this.jwtProperties = jwtProperties;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     public String createAccessToken(User user) {
@@ -75,6 +78,12 @@ public class AuthService {
     @Transactional
     public void logout(String rawRefreshToken) {
         refreshTokenRepository.deleteByTokenHash(hashToken(rawRefreshToken));
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken, String rawAccessToken) {
+        logout(rawRefreshToken);
+        tokenBlacklistService.blacklistAccessToken(rawAccessToken);
     }
 
     @Transactional

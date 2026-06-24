@@ -5,6 +5,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Date;
 
 import java.security.Key;
@@ -45,6 +46,21 @@ public class JwtUtil {
                 .getSubject();
 
         return Long.valueOf(subject);
+    }
+
+    public Date extractExpiration(String token) {
+        return Jwts.parser()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+    }
+
+    public Duration remainingTtl(String token) {
+        Date expiration = extractExpiration(token);
+        long remainingMs = expiration.getTime() - System.currentTimeMillis();
+        return Duration.ofMillis(Math.max(remainingMs, 0));
     }
 
     public boolean validateToken(String token) { //验证token是否合法

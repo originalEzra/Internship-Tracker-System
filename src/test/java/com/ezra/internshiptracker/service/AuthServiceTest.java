@@ -30,9 +30,12 @@ class AuthServiceTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
+
     @Test
     void createRefreshTokenStoresHashInsteadOfRawToken() {
-        AuthService authService = new AuthService(jwtUtil, jwtProperties(), refreshTokenRepository);
+        AuthService authService = authService();
         User user = user(1L);
 
         String rawRefreshToken = authService.createRefreshToken(user);
@@ -50,7 +53,7 @@ class AuthServiceTest {
 
     @Test
     void refreshAccessTokenReturnsNewAccessTokenForValidRefreshToken() {
-        AuthService authService = new AuthService(jwtUtil, jwtProperties(), refreshTokenRepository);
+        AuthService authService = authService();
         User user = user(7L);
         RefreshToken refreshToken = refreshToken(user, LocalDateTime.now().plusDays(1));
 
@@ -64,7 +67,7 @@ class AuthServiceTest {
 
     @Test
     void refreshAccessTokenRejectsAndDeletesExpiredRefreshToken() {
-        AuthService authService = new AuthService(jwtUtil, jwtProperties(), refreshTokenRepository);
+        AuthService authService = authService();
         RefreshToken refreshToken = refreshToken(user(1L), LocalDateTime.now().minusMinutes(1));
 
         when(refreshTokenRepository.findByTokenHash(anyString())).thenReturn(Optional.of(refreshToken));
@@ -78,7 +81,7 @@ class AuthServiceTest {
 
     @Test
     void logoutDeletesRefreshTokenByHash() {
-        AuthService authService = new AuthService(jwtUtil, jwtProperties(), refreshTokenRepository);
+        AuthService authService = authService();
 
         authService.logout("raw-refresh-token");
 
@@ -87,6 +90,20 @@ class AuthServiceTest {
 
         assertThat(tokenHashCaptor.getValue()).hasSize(64);
         assertThat(tokenHashCaptor.getValue()).isNotEqualTo("raw-refresh-token");
+    }
+
+    @Test
+    void logoutWithAccessTokenBlacklistsAccessToken() {
+        AuthService authService = authService();
+
+        authService.logout("raw-refresh-token", "raw-access-token");
+
+        verify(refreshTokenRepository).deleteByTokenHash(anyString());
+        verify(tokenBlacklistService).blacklistAccessToken("raw-access-token");
+    }
+
+    private AuthService authService() {
+        return new AuthService(jwtUtil, jwtProperties(), refreshTokenRepository, tokenBlacklistService);
     }
 
     private JwtProperties jwtProperties() {

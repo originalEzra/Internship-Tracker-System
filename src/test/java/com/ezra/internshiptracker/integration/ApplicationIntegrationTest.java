@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -36,11 +37,17 @@ class ApplicationIntegrationTest {
             .withUsername("test")
             .withPassword("test");
 
+    @Container
+    static final GenericContainer<?> redis = new GenericContainer<>("redis:7.2-alpine")
+            .withExposedPorts(6379);
+
     @DynamicPropertySource
     static void configureDatabase(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", mysql::getJdbcUrl);
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
+        registry.add("spring.data.redis.host", redis::getHost);
+        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
     }
 
     @LocalServerPort
@@ -112,6 +119,16 @@ class ApplicationIntegrationTest {
         JsonNode adminUsers = get("/api/admin/users", adminToken, 200);
         assertThat(containsUsername(adminUsers.at("/data"), "tc_user")).isTrue();
         assertThat(containsUsername(adminUsers.at("/data"), "tc_admin")).isTrue();
+
+        String userRefreshToken = userLogin.at("/data/refreshToken").asText();
+        post("/api/users/logout", """
+                {
+                  "refreshToken": "%s"
+                }
+                """.formatted(userRefreshToken), userToken, 200);
+
+        JsonNode blockedAfterLogout = get("/api/users/me", userToken, 401);
+        assertThat(blockedAfterLogout.path("code").asInt()).isEqualTo(401);
     }
 
     private boolean containsId(JsonNode items, long id) {

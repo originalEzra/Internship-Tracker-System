@@ -3,6 +3,7 @@ package com.ezra.internshiptracker.controller;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
 import com.ezra.internshiptracker.exception.LoginFailedException;
+import com.ezra.internshiptracker.exception.TooManyLoginAttemptsException;
 import com.ezra.internshiptracker.service.AuthService;
 import com.ezra.internshiptracker.service.UserService;
 import com.ezra.internshiptracker.entity.Role;
@@ -110,6 +111,7 @@ class UserControllerTest {
     @Test
     void logoutDeletesRefreshToken() throws Exception {
         mockMvc.perform(post("/api/users/logout")
+                        .header("Authorization", "Bearer access-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -120,7 +122,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.message").value("Logged out"));
 
-        verify(authService).logout("refresh-token");
+        verify(authService).logout("refresh-token", "access-token");
     }
 
     @Test
@@ -139,6 +141,25 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.message").value("Username or password is incorrect"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void tooManyLoginFailuresReturns429ApiResponse() throws Exception {
+        when(userService.login(any()))
+                .thenThrow(new TooManyLoginAttemptsException("Too many failed login attempts. Please try again later."));
+
+        mockMvc.perform(post("/api/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "username": "ezra",
+                                  "password": "wrong"
+                                }
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value(429))
+                .andExpect(jsonPath("$.message").value("Too many failed login attempts. Please try again later."))
                 .andExpect(jsonPath("$.data").doesNotExist());
     }
 

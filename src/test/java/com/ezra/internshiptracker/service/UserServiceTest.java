@@ -46,6 +46,9 @@ class UserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private LoginRateLimitService loginRateLimitService;
+
     @InjectMocks
     private UserService userService;
 
@@ -90,6 +93,8 @@ class UserServiceTest {
         User loggedInUser = userService.login(request);
 
         assertThat(loggedInUser).isSameAs(user);
+        verify(loginRateLimitService).checkAllowed("ezra");
+        verify(loginRateLimitService).clearFailures("ezra");
     }
 
     @Test
@@ -103,6 +108,9 @@ class UserServiceTest {
         assertThatThrownBy(() -> userService.login(request))
                 .isInstanceOf(LoginFailedException.class)
                 .hasMessage("Username or password is incorrect");
+
+        verify(loginRateLimitService).checkAllowed("ezra");
+        verify(loginRateLimitService).recordFailure("ezra");
     }
 
     @Test

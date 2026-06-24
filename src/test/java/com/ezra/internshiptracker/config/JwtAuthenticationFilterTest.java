@@ -3,6 +3,7 @@ package com.ezra.internshiptracker.config;
 import com.ezra.internshiptracker.entity.Role;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.repository.UserRepository;
+import com.ezra.internshiptracker.service.TokenBlacklistService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -23,8 +24,10 @@ class JwtAuthenticationFilterTest {
             new JwtUtil(jwtProperties());
 
     private final UserRepository userRepository = mock(UserRepository.class);
+    private final TokenBlacklistService tokenBlacklistService = mock(TokenBlacklistService.class);
 
-    private final JwtAuthenticationFilter filter = new JwtAuthenticationFilter(jwtUtil, userRepository);
+    private final JwtAuthenticationFilter filter =
+            new JwtAuthenticationFilter(jwtUtil, userRepository, tokenBlacklistService);
 
     @AfterEach
     void clearSecurityContext() {
@@ -94,6 +97,19 @@ class JwtAuthenticationFilterTest {
     void invalidBearerTokenLeavesRequestUnauthenticated() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("Authorization", "Bearer invalid-token");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    void blacklistedBearerTokenLeavesRequestUnauthenticated() throws Exception {
+        String token = jwtUtil.generateToken(99L);
+        when(tokenBlacklistService.isAccessTokenBlacklisted(token)).thenReturn(true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("Authorization", "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());
