@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-06-25 - Internship Status Machine Milestone
+
+### Added
+
+- Expanded `InternshipStatus` values: `DRAFT`, `ONLINE_ASSESSMENT`, `TECH_INTERVIEW`, `HR_INTERVIEW`, and `WITHDRAWN`.
+- Backend-owned status transition rules through `InternshipStatus.canTransitionTo(...)`.
+- `InvalidInternshipStatusTransitionException` mapped to unified `400` API responses.
+- Flyway migration `V6__normalize_internship_status_machine.sql`.
+- Unit tests for valid transitions, invalid transitions, and terminal statuses.
+- Controller test proving invalid transitions return `400`.
+- Apifox regression step for invalid status transition rejection.
+
+### Changed
+
+- Updating an internship now validates status transitions before saving.
+- Existing `INTERVIEW` rows are migrated to `TECH_INTERVIEW`.
+- Apifox update flow now moves an internship from `APPLIED` to `ONLINE_ASSESSMENT`.
+- README documents the status machine and rejected transition examples.
+
+### Verified
+
+- `./mvnw -Dtest=InternshipServiceTest,InternshipControllerTest test` passes.
+- `./mvnw test` passes.
+- 57 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - Internship updatedAt Milestone
 
 ### Added

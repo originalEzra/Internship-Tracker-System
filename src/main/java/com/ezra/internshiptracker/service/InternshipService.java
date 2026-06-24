@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
+import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
 import com.ezra.internshiptracker.dto.internship.UpdateInternshipRequest;
 
 import com.ezra.internshiptracker.entity.User;
@@ -100,6 +101,8 @@ public class InternshipService {
         Internship internship = internshipRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new InternshipNotFoundException("Internship not found"));
 
+        validateStatusTransition(internship.getStatus(), request.getStatus());
+
         internship.setCompany(request.getCompany());
         internship.setPosition(request.getPosition());
         internship.setLocation(request.getLocation());
@@ -125,6 +128,15 @@ public class InternshipService {
         response.setUpdatedAt(internship.getUpdatedAt());
 
         return response;
+    }
+
+    private void validateStatusTransition(
+            InternshipStatus currentStatus,
+            InternshipStatus nextStatus
+    ) {
+        if (!currentStatus.canTransitionTo(nextStatus)) {
+            throw new InvalidInternshipStatusTransitionException(currentStatus, nextStatus);
+        }
     }
 
     private Pageable buildPageable(int page, int size, String sort) {

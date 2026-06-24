@@ -43,6 +43,13 @@ public class GlobalExceptionHandler {
         return error(404, e.getMessage());
     }
 
+    @ExceptionHandler(InvalidInternshipStatusTransitionException.class)
+    public ResponseEntity<ApiResponse<String>> handleInvalidInternshipStatusTransitionException(
+            InvalidInternshipStatusTransitionException e
+    ) {
+        return error(400, e.getMessage());
+    }
+
     @ExceptionHandler(DuplicateUserException.class)
     public ResponseEntity<ApiResponse<String>> handleDuplicateUserException(
             DuplicateUserException e

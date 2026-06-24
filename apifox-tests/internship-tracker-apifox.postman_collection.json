@@ -588,7 +588,7 @@
         "url": "{{baseUrl}}/api/internships/{{internshipId}}",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"INTERVIEW\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
+          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"ONLINE_ASSESSMENT\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
         }
       },
       "event": [
@@ -603,9 +603,47 @@
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('internshipId')));",
               "  pm.expect(json.data.company).to.eql('Apifox Company Updated');",
+              "  pm.expect(json.data.status).to.eql('ONLINE_ASSESSMENT');",
               "  pm.expect(json.data.createdAt).to.eql(pm.collectionVariables.get('internshipCreatedAt'));",
               "  pm.expect(json.data.updatedAt).to.be.a('string');",
               "  pm.collectionVariables.set('internshipUpdatedAtAfterUpdate', json.data.updatedAt);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12.1 Invalid Status Transition Should Return 400",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships/{{internshipId}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"company\": \"Apifox Company Invalid Transition\",\n  \"position\": \"Backend Intern Invalid\",\n  \"location\": \"Sydney\",\n  \"status\": \"DRAFT\",\n  \"applicationUrl\": \"https://example.com/job-invalid\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('invalid status transition is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(400);",
+              "  pm.expect(json.message).to.include('Cannot change internship status from ONLINE_ASSESSMENT to DRAFT');",
               "});"
             ]
           }

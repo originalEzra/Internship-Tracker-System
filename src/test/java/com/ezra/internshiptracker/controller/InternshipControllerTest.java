@@ -4,11 +4,13 @@ import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
+import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
 import com.ezra.internshiptracker.service.InternshipService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -17,6 +19,7 @@ import java.util.List;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -98,5 +101,33 @@ class InternshipControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("Invalid request parameter"));
+    }
+
+    @Test
+    void invalidStatusTransitionReturns400ApiResponse() throws Exception {
+        when(internshipService.updateInternship(
+                Mockito.eq(10L),
+                Mockito.any(),
+                Mockito.eq(1L)
+        )).thenThrow(new InvalidInternshipStatusTransitionException(
+                InternshipStatus.DRAFT,
+                InternshipStatus.OFFER
+        ));
+
+        mockMvc.perform(put("/api/internships/10")
+                        .principal(new TestingAuthenticationToken("1", null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "company": "OpenAI",
+                                  "position": "Backend Intern",
+                                  "location": "Sydney",
+                                  "status": "OFFER",
+                                  "applicationUrl": "https://example.com"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value("Cannot change internship status from DRAFT to OFFER"));
     }
 }

@@ -50,7 +50,8 @@ Implemented:
 - Flyway database migrations for users and internships schema management
 - Paginated, searchable, filterable, and sortable internship list API
 - Query boundary tests for invalid status, invalid page type, page/size normalization, blank keyword, and sort fallback behavior
-- Enum-based internship status values: `APPLIED`, `INTERVIEW`, `OFFER`, `REJECTED`
+- Enum-based internship status values: `DRAFT`, `APPLIED`, `ONLINE_ASSESSMENT`, `TECH_INTERVIEW`, `HR_INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN`
+- Backend-owned internship status transition rules
 - `updatedAt` tracking for internship records
 
 ## Authentication Flow
@@ -177,6 +178,47 @@ GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=updatedA
 Authorization: Bearer <token>
 ```
 
+### Internship Status Machine
+
+The backend owns internship status transitions. The frontend can request a
+status change, but the service layer decides whether the transition is valid.
+
+Supported status values:
+
+- `DRAFT`
+- `APPLIED`
+- `ONLINE_ASSESSMENT`
+- `TECH_INTERVIEW`
+- `HR_INTERVIEW`
+- `OFFER`
+- `REJECTED`
+- `WITHDRAWN`
+
+Examples of valid transitions:
+
+- `DRAFT -> APPLIED`
+- `APPLIED -> ONLINE_ASSESSMENT`
+- `ONLINE_ASSESSMENT -> TECH_INTERVIEW`
+- `TECH_INTERVIEW -> HR_INTERVIEW`
+- `HR_INTERVIEW -> OFFER`
+- Any active progress state can move to `REJECTED` or `WITHDRAWN`
+
+Examples of rejected transitions:
+
+- `DRAFT -> OFFER`
+- `REJECTED -> TECH_INTERVIEW`
+- `OFFER -> ONLINE_ASSESSMENT`
+
+Invalid transitions return a unified `400` response:
+
+```json
+{
+  "code": 400,
+  "message": "Cannot change internship status from DRAFT to OFFER",
+  "data": null
+}
+```
+
 ## Response Format
 
 Successful response:
@@ -279,6 +321,14 @@ V5__add_updated_at_to_internships.sql
 ```
 
 `V5` adds `internships.updated_at` and backfills existing rows from `created_at` or the current timestamp.
+
+Internship status machine migration:
+
+```text
+V6__normalize_internship_status_machine.sql
+```
+
+`V6` maps old `INTERVIEW` values to `TECH_INTERVIEW` so existing data stays compatible with the expanded status enum.
 
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
@@ -544,6 +594,7 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Internship list queries were upgraded from returning a raw list to returning a paginated `PageResponse`.
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
 - Internship records now track `updatedAt`, so APIs can expose and sort by last modified time.
+- Internship status changes are now guarded by backend transition rules instead of trusting the frontend to set any enum value.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was first implemented by deleting the stored refresh token hash.
 - Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
@@ -562,9 +613,9 @@ Recommended next steps:
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
 
-2. Add internship status machine and status history.
-   - Restrict invalid status transitions.
+2. Add internship status history.
    - Record status changes for audit-style timelines.
+   - Store operator user, previous status, next status, timestamp, and optional note.
 
 3. Consider Redis caching only if a read-heavy endpoint appears.
    - Current Redis usage is for security state, not ordinary response caching.
