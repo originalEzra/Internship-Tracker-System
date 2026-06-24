@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-06-25 - Internship updatedAt Milestone
+
+### Added
+
+- Flyway migration `V5__add_updated_at_to_internships.sql`.
+- `updatedAt` field on internship records.
+- `updatedAt` in `InternshipResponse`.
+- `updatedAt` support in internship list sorting.
+- Apifox regression assertions for `createdAt` and `updatedAt`.
+
+### Changed
+
+- Creating an internship now sets both `createdAt` and `updatedAt`.
+- Updating an internship now refreshes `updatedAt`.
+- Existing rows are backfilled with `created_at` or the current timestamp during migration.
+
+### Verified
+
+- `./mvnw -Dtest=InternshipServiceTest test` passes.
+- `./mvnw test` passes.
+- 53 backend tests run successfully with 0 failures.
+
 ## 2026-06-24 - Redis Auth Hardening Milestone
 
 ### Added

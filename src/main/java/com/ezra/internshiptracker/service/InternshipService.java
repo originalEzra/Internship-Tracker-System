@@ -36,7 +36,7 @@ public class InternshipService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final Set<String> ALLOWED_SORT_FIELDS =
-            Set.of("createdAt", "company", "position", "status");
+            Set.of("createdAt", "updatedAt", "company", "position", "status");
 
     public PageResponse<InternshipResponse> getMyInternships(
             Long userId,
@@ -75,7 +75,9 @@ public class InternshipService {
         internship.setLocation(request.getLocation());
         internship.setStatus(request.getStatus());
         internship.setApplicationUrl(request.getApplicationUrl());
-        internship.setCreatedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        internship.setCreatedAt(now);
+        internship.setUpdatedAt(now);
 
         internship.setUser(user);
 
@@ -103,6 +105,7 @@ public class InternshipService {
         internship.setLocation(request.getLocation());
         internship.setStatus(request.getStatus());
         internship.setApplicationUrl(request.getApplicationUrl());
+        internship.setUpdatedAt(LocalDateTime.now());
 
         Internship updatedInternship = internshipRepository.save(internship);
 
@@ -119,6 +122,7 @@ public class InternshipService {
         response.setStatus(internship.getStatus());
         response.setApplicationUrl(internship.getApplicationUrl());
         response.setCreatedAt(internship.getCreatedAt());
+        response.setUpdatedAt(internship.getUpdatedAt());
 
         return response;
     }
