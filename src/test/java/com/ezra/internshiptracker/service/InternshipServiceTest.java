@@ -8,6 +8,7 @@ import com.ezra.internshiptracker.entity.Internship;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
+import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
 import com.ezra.internshiptracker.repository.InternshipRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
 import org.mockito.ArgumentCaptor;
@@ -185,8 +186,55 @@ class InternshipServiceTest {
 
         assertThat(response.getCompany()).isEqualTo("Anthropic");
         assertThat(response.getPosition()).isEqualTo("Backend Intern");
+        assertThat(response.getStatus()).isEqualTo(InternshipStatus.ONLINE_ASSESSMENT);
         assertThat(response.getUpdatedAt()).isAfter(previousUpdatedAt);
         verify(internshipRepository).findByIdAndUserId(10L, 1L);
+    }
+
+    @Test
+    void updateInternshipRejectsInvalidStatusTransition() {
+        Internship internship = internship();
+        internship.setStatus(InternshipStatus.DRAFT);
+
+        UpdateInternshipRequest request = updateRequest();
+        request.setStatus(InternshipStatus.OFFER);
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+
+        assertThatThrownBy(() -> internshipService.updateInternship(10L, request, 1L))
+                .isInstanceOf(InvalidInternshipStatusTransitionException.class)
+                .hasMessage("Cannot change internship status from DRAFT to OFFER");
+    }
+
+    @Test
+    void updateInternshipAllowsSameStatusWhenEditingOtherFields() {
+        Internship internship = internship();
+
+        UpdateInternshipRequest request = updateRequest();
+        request.setStatus(InternshipStatus.APPLIED);
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+        when(internshipRepository.save(internship)).thenReturn(internship);
+
+        InternshipResponse response = internshipService.updateInternship(10L, request, 1L);
+
+        assertThat(response.getStatus()).isEqualTo(InternshipStatus.APPLIED);
+        assertThat(response.getCompany()).isEqualTo("Anthropic");
+    }
+
+    @Test
+    void updateInternshipRejectsTransitionsFromTerminalStatus() {
+        Internship internship = internship();
+        internship.setStatus(InternshipStatus.REJECTED);
+
+        UpdateInternshipRequest request = updateRequest();
+        request.setStatus(InternshipStatus.TECH_INTERVIEW);
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+
+        assertThatThrownBy(() -> internshipService.updateInternship(10L, request, 1L))
+                .isInstanceOf(InvalidInternshipStatusTransitionException.class)
+                .hasMessage("Cannot change internship status from REJECTED to TECH_INTERVIEW");
     }
 
     @Test
@@ -244,7 +292,7 @@ class InternshipServiceTest {
         request.setCompany("Anthropic");
         request.setPosition("Backend Intern");
         request.setLocation("Sydney");
-        request.setStatus(InternshipStatus.INTERVIEW);
+        request.setStatus(InternshipStatus.ONLINE_ASSESSMENT);
         request.setApplicationUrl("https://example.com/updated");
         return request;
     }
