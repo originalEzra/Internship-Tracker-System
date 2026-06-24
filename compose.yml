@@ -17,5 +17,20 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7.2-alpine
+    container_name: internship-tracker-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - internship-tracker-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   internship-tracker-mysql-data:
+  internship-tracker-redis-data:

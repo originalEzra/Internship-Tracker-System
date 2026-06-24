@@ -57,6 +57,14 @@ public class UserController {
         return Long.valueOf(authentication.getName());
     }
 
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            return null;
+        }
+
+        return authorizationHeader.substring(7);
+    }
+
     @GetMapping("/me")
     public ApiResponse<UserResponse> getCurrentUser(
             Authentication authentication
@@ -110,9 +118,10 @@ public class UserController {
 
     @PostMapping("/logout")
     public ApiResponse<String> logout(
-            @Valid @RequestBody RefreshTokenRequest request
+            @Valid @RequestBody RefreshTokenRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader
     ) {
-        authService.logout(request.getRefreshToken());
+        authService.logout(request.getRefreshToken(), extractBearerToken(authorizationHeader));
 
         return ApiResponse.success("Logged out", null);
     }

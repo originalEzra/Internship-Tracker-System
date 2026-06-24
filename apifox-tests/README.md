@@ -52,13 +52,16 @@ Do not start directly from `01 Register User A`, because `00 Initialize Test Dat
 18. Confirm duplicate registration returns 400.
 19. Confirm User B cannot access or update User A's internship.
 20. Logout current user.
-21. Confirm refresh token cannot be reused after logout.
-22. Delete current user.
+21. Confirm the logged-out access token returns 401.
+22. Confirm refresh token cannot be reused after logout.
+23. Login again only to get a cleanup token.
+24. Delete current user.
 
 ## Notes
 
 - Negative cases such as 401, 404, and 400 are expected and are asserted in scripts.
-- Logout deletes the refresh token. The current access token may still work until it expires because access JWTs are stateless.
+- Logout deletes the refresh token and blacklists the current access token when the request includes `Authorization: Bearer {{token}}`.
+- The cleanup login exists because the old access token should no longer be usable after logout.
 - Test data uses timestamp-based usernames/emails, so repeated runs do not collide with previous database rows.
 - Apifox script style uses Postman-compatible `pm.*` APIs.
 - Admin RBAC is documented separately in `admin-rbac-manual.md` because the default regression flow only creates normal `USER` accounts.

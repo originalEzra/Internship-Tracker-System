@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.repository.UserRepository;
+import com.ezra.internshiptracker.service.TokenBlacklistService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -23,10 +24,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserRepository userRepository) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil,
+                                   UserRepository userRepository,
+                                   TokenBlacklistService tokenBlacklistService) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     @Override
@@ -44,6 +49,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+
+        if (tokenBlacklistService.isAccessTokenBlacklisted(token)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         if (jwtUtil.validateToken(token)) {
             Long userId = jwtUtil.extractUserId(token);

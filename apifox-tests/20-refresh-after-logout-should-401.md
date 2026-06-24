@@ -1,4 +1,4 @@
-# 19 Refresh After Logout Should Return 401
+# 20 Refresh After Logout Should Return 401
 
 After logout, the same refresh token should no longer be usable.
 

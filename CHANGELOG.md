@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-06-24 - Redis Auth Hardening Milestone
+
+### Added
+
+- Spring Data Redis dependency.
+- Docker Compose Redis service for local development.
+- Redis-backed access token blacklist for logout.
+- Redis-backed login failure rate limiting.
+- `TokenBlacklistService` for hashing and storing logged-out access tokens with JWT-based TTL.
+- `LoginRateLimitService` for tracking failed login attempts by username.
+- `TooManyLoginAttemptsException` mapped to unified `429` API responses.
+- Unit tests for token blacklist and login rate limiting.
+- Testcontainers Redis container in the integration test.
+- Apifox regression step proving old access token returns `401` after logout.
+
+### Changed
+
+- Logout now deletes the refresh token and blacklists the current access token when `Authorization: Bearer <token>` is provided.
+- JWT authentication filter now rejects blacklisted access tokens before creating `Authentication`.
+- Login clears failed-attempt counters after a successful login.
+- README and Obsidian notes document Redis as authentication state, not ordinary caching.
+
+### Verified
+
+- `./mvnw test` passes.
+- 52 backend tests run successfully with 0 failures.
+
 ## 2026-06-17 - Lightweight RBAC Milestone
 
 ### Added

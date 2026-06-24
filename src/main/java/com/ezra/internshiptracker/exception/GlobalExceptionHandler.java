@@ -71,6 +71,13 @@ public class GlobalExceptionHandler {
         return error(401, e.getMessage());
     }
 
+    @ExceptionHandler(TooManyLoginAttemptsException.class)
+    public ResponseEntity<ApiResponse<String>> handleTooManyLoginAttemptsException(
+            TooManyLoginAttemptsException e
+    ) {
+        return error(429, e.getMessage());
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<String>> handleDataIntegrityViolationException(
             DataIntegrityViolationException e

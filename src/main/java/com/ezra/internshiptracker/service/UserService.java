@@ -26,15 +26,18 @@ public class UserService {
     private final InternshipRepository internshipRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final LoginRateLimitService loginRateLimitService;
 
     public UserService(UserRepository userRepository,
                        InternshipRepository internshipRepository,
                        RefreshTokenRepository refreshTokenRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       LoginRateLimitService loginRateLimitService) {
         this.userRepository = userRepository;
         this.internshipRepository = internshipRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.loginRateLimitService = loginRateLimitService;
     }
 
     public User getUserByUsername(String username) {
@@ -107,9 +110,13 @@ public class UserService {
     }
 
     public User login(LoginRequest request) {
+        loginRateLimitService.checkAllowed(request.getUsername());
 
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new LoginFailedException("Username or password is incorrect"));
+                .orElseThrow(() -> {
+                    loginRateLimitService.recordFailure(request.getUsername());
+                    return new LoginFailedException("Username or password is incorrect");
+                });
 
         boolean matches = passwordEncoder.matches(
                 request.getPassword(),
@@ -117,8 +124,11 @@ public class UserService {
         );
 
         if (!matches) {
+            loginRateLimitService.recordFailure(request.getUsername());
             throw new LoginFailedException("Username or password is incorrect");
         }
+
+        loginRateLimitService.clearFailures(request.getUsername());
 
         return user;
     }
