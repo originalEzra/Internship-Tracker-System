@@ -3,14 +3,18 @@ package com.ezra.internshiptracker.service;
 import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
+import com.ezra.internshiptracker.dto.internship.InternshipStatusHistoryResponse;
 import com.ezra.internshiptracker.entity.Internship;
 import com.ezra.internshiptracker.entity.InternshipStatus;
+import com.ezra.internshiptracker.entity.InternshipStatusHistory;
 import com.ezra.internshiptracker.repository.InternshipRepository;
+import com.ezra.internshiptracker.repository.InternshipStatusHistoryRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
 import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
@@ -21,17 +25,21 @@ import com.ezra.internshiptracker.repository.UserRepository;
 import com.ezra.internshiptracker.exception.UserNotFoundException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Service
 public class InternshipService {
 
     private final InternshipRepository internshipRepository;
+    private final InternshipStatusHistoryRepository statusHistoryRepository;
     private final UserRepository userRepository;
 
     public InternshipService(InternshipRepository internshipRepository,
+                             InternshipStatusHistoryRepository statusHistoryRepository,
                              UserRepository userRepository) {
         this.internshipRepository = internshipRepository;
+        this.statusHistoryRepository = statusHistoryRepository;
         this.userRepository = userRepository;
     }
 
@@ -62,6 +70,16 @@ public class InternshipService {
                 .orElseThrow(() -> new InternshipNotFoundException("Internship not found"));
 
         return toResponse(internship);
+    }
+
+    public List<InternshipStatusHistoryResponse> getMyInternshipStatusHistory(Long id, Long userId) {
+        internshipRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new InternshipNotFoundException("Internship not found"));
+
+        return statusHistoryRepository.findByInternshipIdAndInternshipUserIdOrderByCreatedAtAsc(id, userId)
+                .stream()
+                .map(this::toStatusHistoryResponse)
+                .toList();
     }
 
     public InternshipResponse createInternship(CreateInternshipRequest request, Long userId) {
@@ -96,21 +114,29 @@ public class InternshipService {
         internshipRepository.delete(internship);
     }
 
+    @Transactional
     public InternshipResponse updateInternship(Long id, UpdateInternshipRequest request, Long userId) {
 
         Internship internship = internshipRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new InternshipNotFoundException("Internship not found"));
 
-        validateStatusTransition(internship.getStatus(), request.getStatus());
+        InternshipStatus currentStatus = internship.getStatus();
+        InternshipStatus nextStatus = request.getStatus();
+
+        validateStatusTransition(currentStatus, nextStatus);
 
         internship.setCompany(request.getCompany());
         internship.setPosition(request.getPosition());
         internship.setLocation(request.getLocation());
-        internship.setStatus(request.getStatus());
+        internship.setStatus(nextStatus);
         internship.setApplicationUrl(request.getApplicationUrl());
         internship.setUpdatedAt(LocalDateTime.now());
 
         Internship updatedInternship = internshipRepository.save(internship);
+
+        if (currentStatus != nextStatus) {
+            saveStatusHistory(updatedInternship, currentStatus, nextStatus, userId, request.getStatusNote());
+        }
 
         return toResponse(updatedInternship);
     }
@@ -128,6 +154,45 @@ public class InternshipService {
         response.setUpdatedAt(internship.getUpdatedAt());
 
         return response;
+    }
+
+    private InternshipStatusHistoryResponse toStatusHistoryResponse(InternshipStatusHistory history) {
+        InternshipStatusHistoryResponse response = new InternshipStatusHistoryResponse();
+
+        response.setId(history.getId());
+        response.setInternshipId(history.getInternship().getId());
+        response.setFromStatus(history.getFromStatus());
+        response.setToStatus(history.getToStatus());
+        response.setNote(history.getNote());
+        response.setCreatedAt(history.getCreatedAt());
+
+        if (history.getOperator() != null) {
+            response.setOperatorUserId(history.getOperator().getId());
+            response.setOperatorUsername(history.getOperator().getUsername());
+        }
+
+        return response;
+    }
+
+    private void saveStatusHistory(
+            Internship internship,
+            InternshipStatus fromStatus,
+            InternshipStatus toStatus,
+            Long userId,
+            String note
+    ) {
+        User operator = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        InternshipStatusHistory history = new InternshipStatusHistory();
+        history.setInternship(internship);
+        history.setFromStatus(fromStatus);
+        history.setToStatus(toStatus);
+        history.setOperator(operator);
+        history.setNote(normalizeNote(note));
+        history.setCreatedAt(LocalDateTime.now());
+
+        statusHistoryRepository.save(history);
     }
 
     private void validateStatusTransition(
@@ -173,5 +238,13 @@ public class InternshipService {
         }
 
         return keyword.trim();
+    }
+
+    private String normalizeNote(String note) {
+        if (note == null || note.isBlank()) {
+            return null;
+        }
+
+        return note.trim();
     }
 }

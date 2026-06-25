@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-06-25 - Internship Status History Milestone
+
+### Added
+
+- Flyway migration `V7__create_internship_status_history.sql`.
+- `InternshipStatusHistory` entity and repository.
+- `InternshipStatusHistoryResponse` DTO.
+- `GET /api/internships/{id}/status-history` endpoint.
+- Optional `statusNote` field on internship update requests.
+- Status history write when an internship status successfully changes.
+- Unit tests for history creation, same-status updates, ownership checks, and response mapping.
+- Controller test for the status history endpoint.
+- Testcontainers integration coverage for status update and history query.
+- Apifox regression step for status history.
+
+### Changed
+
+- Internship updates now run in a transaction so status update and history insert succeed or roll back together.
+- Editing other internship fields without changing status does not create a history row.
+- Apifox update flow now includes a status note.
+- README documents the status history endpoint and database table.
+
+### Verified
+
+- `./mvnw -Dtest=InternshipServiceTest,InternshipControllerTest,ApplicationIntegrationTest test` passes.
+- Testcontainers applies 7 Flyway migrations successfully.
+- `./mvnw test` passes.
+- 60 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - Internship Status Machine Milestone
 
 ### Added

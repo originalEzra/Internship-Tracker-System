@@ -96,6 +96,22 @@ class ApplicationIntegrationTest {
         JsonNode internships = get("/api/internships", userToken, 200);
         assertThat(containsId(internships.at("/data/content"), internshipId)).isTrue();
 
+        put("/api/internships/" + internshipId, """
+                {
+                  "company": "Testcontainers Company",
+                  "position": "Backend Intern",
+                  "location": "Sydney",
+                  "status": "ONLINE_ASSESSMENT",
+                  "applicationUrl": "https://example.com/internship",
+                  "statusNote": "Received OA"
+                }
+                """, userToken, 200);
+
+        JsonNode statusHistory = get("/api/internships/" + internshipId + "/status-history", userToken, 200);
+        assertThat(statusHistory.at("/data/0/fromStatus").asText()).isEqualTo("APPLIED");
+        assertThat(statusHistory.at("/data/0/toStatus").asText()).isEqualTo("ONLINE_ASSESSMENT");
+        assertThat(statusHistory.at("/data/0/note").asText()).isEqualTo("Received OA");
+
         JsonNode forbiddenAdminAccess = get("/api/admin/users", userToken, 403);
         assertThat(forbiddenAdminAccess.path("code").asInt()).isEqualTo(403);
 
@@ -155,10 +171,11 @@ class ApplicationIntegrationTest {
                 Integer.class
         );
 
-        assertThat(appliedMigrations).isGreaterThanOrEqualTo(4);
+        assertThat(appliedMigrations).isGreaterThanOrEqualTo(7);
         assertThat(tableExists("users")).isTrue();
         assertThat(tableExists("internships")).isTrue();
         assertThat(tableExists("refresh_tokens")).isTrue();
+        assertThat(tableExists("internship_status_history")).isTrue();
     }
 
     private boolean tableExists(String tableName) {
@@ -196,6 +213,18 @@ class ApplicationIntegrationTest {
         HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(body));
+        if (token != null) {
+            builder.header("Authorization", "Bearer " + token);
+        }
+
+        return send(builder.build(), expectedStatus);
+    }
+
+    private JsonNode put(String path, String body, String token, int expectedStatus)
+            throws IOException, InterruptedException {
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(body));
         if (token != null) {
             builder.header("Authorization", "Bearer " + token);
         }

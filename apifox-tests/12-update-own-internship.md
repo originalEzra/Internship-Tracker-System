@@ -14,7 +14,8 @@ Body:
   "position": "Backend Intern Updated",
   "location": "Melbourne",
   "status": "ONLINE_ASSESSMENT",
-  "applicationUrl": "https://example.com/job-updated"
+  "applicationUrl": "https://example.com/job-updated",
+  "statusNote": "Received OA"
 }
 ```
 

@@ -4,6 +4,7 @@ import com.ezra.internshiptracker.dto.ApiResponse;
 import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
+import com.ezra.internshiptracker.dto.internship.InternshipStatusHistoryResponse;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.service.InternshipService;
 import org.springframework.web.bind.annotation.*;
@@ -13,6 +14,8 @@ import com.ezra.internshiptracker.dto.internship.UpdateInternshipRequest;
 import org.springframework.security.core.Authentication;
 
 import jakarta.validation.Valid;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/internships")
@@ -56,6 +59,19 @@ public class InternshipController {
                 internshipService.getMyInternshipById(id, userId);
 
         return ApiResponse.success(internship);
+    }
+
+    @GetMapping("/{id}/status-history")
+    public ApiResponse<List<InternshipStatusHistoryResponse>> getInternshipStatusHistory(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        Long userId = getCurrentUserId(authentication);
+
+        List<InternshipStatusHistoryResponse> history =
+                internshipService.getMyInternshipStatusHistory(id, userId);
+
+        return ApiResponse.success(history);
     }
 
     @PostMapping
