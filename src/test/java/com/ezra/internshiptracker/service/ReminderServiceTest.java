@@ -130,6 +130,25 @@ class ReminderServiceTest {
                 .hasMessage("Reminder not found");
     }
 
+    @Test
+    void markDueRemindersAsSentUpdatesPendingDueReminders() {
+        LocalDateTime now = LocalDateTime.of(2026, 1, 3, 10, 0);
+        Reminder dueReminder = reminder(ReminderStatus.PENDING);
+        dueReminder.setRemindAt(now.minusMinutes(5));
+
+        when(reminderRepository.findByStatusAndRemindAtLessThanEqualOrderByRemindAtAsc(
+                ReminderStatus.PENDING,
+                now
+        )).thenReturn(List.of(dueReminder));
+
+        int processed = reminderService.markDueRemindersAsSent(now);
+
+        assertThat(processed).isEqualTo(1);
+        assertThat(dueReminder.getStatus()).isEqualTo(ReminderStatus.SENT);
+        assertThat(dueReminder.getUpdatedAt()).isEqualTo(now);
+        verify(reminderRepository).saveAll(List.of(dueReminder));
+    }
+
     private CreateReminderRequest createRequest() {
         CreateReminderRequest request = new CreateReminderRequest();
         request.setInternshipId(10L);

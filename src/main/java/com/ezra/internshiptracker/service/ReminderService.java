@@ -65,6 +65,24 @@ public class ReminderService {
         return toResponse(reminderRepository.save(reminder));
     }
 
+    @Transactional
+    public int markDueRemindersAsSent(LocalDateTime now) {
+        List<Reminder> dueReminders =
+                reminderRepository.findByStatusAndRemindAtLessThanEqualOrderByRemindAtAsc(
+                        ReminderStatus.PENDING,
+                        now
+                );
+
+        dueReminders.forEach(reminder -> {
+            reminder.setStatus(ReminderStatus.SENT);
+            reminder.setUpdatedAt(now);
+        });
+
+        reminderRepository.saveAll(dueReminders);
+
+        return dueReminders.size();
+    }
+
     private ReminderResponse toResponse(Reminder reminder) {
         ReminderResponse response = new ReminderResponse();
 
