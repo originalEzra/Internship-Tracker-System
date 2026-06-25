@@ -43,6 +43,13 @@ public class GlobalExceptionHandler {
         return error(404, e.getMessage());
     }
 
+    @ExceptionHandler(ReminderNotFoundException.class)
+    public ResponseEntity<ApiResponse<String>> handleReminderNotFound(
+            ReminderNotFoundException e
+    ) {
+        return error(404, e.getMessage());
+    }
+
     @ExceptionHandler(InvalidInternshipStatusTransitionException.class)
     public ResponseEntity<ApiResponse<String>> handleInvalidInternshipStatusTransitionException(
             InvalidInternshipStatusTransitionException e

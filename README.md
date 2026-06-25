@@ -20,7 +20,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, and `updatedAt` tracking milestone.
+This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, status workflow tracking, and reminder system milestone.
 
 Implemented:
 
@@ -53,6 +53,7 @@ Implemented:
 - Enum-based internship status values: `DRAFT`, `APPLIED`, `ONLINE_ASSESSMENT`, `TECH_INTERVIEW`, `HR_INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN`
 - Backend-owned internship status transition rules
 - Status change history for internship workflow tracking
+- User-scoped reminders for OA deadlines, interviews, offer deadlines, and follow-ups
 - `updatedAt` tracking for internship records
 
 ## Authentication Flow
@@ -147,6 +148,44 @@ For this project size, a single `role` column is enough. If roles and permission
 | PUT | `/api/internships/{id}` | Update current user's internship | Yes |
 | GET | `/api/internships/{id}/status-history` | Get current user's internship status timeline | Yes |
 | DELETE | `/api/internships/{id}` | Delete current user's internship | Yes |
+
+### Reminders
+
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/reminders` | Get current user's reminders, optionally filtered by status | Yes |
+| POST | `/api/reminders` | Create a reminder for one of the current user's internships | Yes |
+| PUT | `/api/reminders/{id}/cancel` | Cancel one of the current user's reminders | Yes |
+
+`GET /api/reminders` supports:
+
+| Query Parameter | Description | Example |
+| --- | --- | --- |
+| `status` | Optional reminder status filter. Invalid enum values return `400`. | `PENDING` |
+
+Supported reminder statuses:
+
+- `PENDING`
+- `SENT`
+- `CANCELLED`
+
+Create reminder example:
+
+```http
+POST /api/reminders
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+```json
+{
+  "internshipId": 10,
+  "message": "OA due tomorrow",
+  "remindAt": "2099-01-02T10:00:00"
+}
+```
+
+The backend verifies that `internshipId` belongs to the current user before creating the reminder. This prevents one user from creating or reading reminders for another user's internship.
 
 `GET /api/internships` supports:
 
@@ -372,6 +411,14 @@ V7__create_internship_status_history.sql
 
 `V7` creates `internship_status_history`, which records each successful status change. History rows are deleted when their internship is deleted, and `operator_user_id` is set to null if the operator user is deleted.
 
+Reminder migration:
+
+```text
+V8__create_reminders_table.sql
+```
+
+`V8` creates `reminders`, which stores user-scoped reminder records linked to internships. Reminder rows are deleted when the owning user or internship is deleted.
+
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
 ### users
@@ -410,6 +457,19 @@ Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This mean
 | operator_user_id | User who changed the status |
 | note | Optional status-change note |
 | created_at | Status-change time |
+
+### reminders
+
+| Column | Description |
+| --- | --- |
+| id | Primary key |
+| user_id | Foreign key to users.id |
+| internship_id | Foreign key to internships.id |
+| message | Reminder message |
+| remind_at | Time when the reminder should trigger |
+| status | Reminder status: `PENDING`, `SENT`, or `CANCELLED` |
+| created_at | Creation time |
+| updated_at | Last update time |
 
 ## Configuration
 
@@ -585,7 +645,7 @@ Current backend test coverage:
 - `TokenBlacklistServiceTest`: Redis-backed access token blacklist key and TTL behavior
 - `LoginRateLimitServiceTest`: Redis-backed failed login counting, clearing, and lockout behavior
 - `AdminControllerTest`: admin response shape and password hiding
-- `ApplicationIntegrationTest`: real MySQL and Redis containers, Flyway migration, register/login, JWT-protected internship APIs, USER 403, ADMIN 200, and access-token blacklist after logout
+- `ApplicationIntegrationTest`: real MySQL and Redis containers, Flyway migration, register/login, JWT-protected internship APIs, reminder APIs, USER 403, ADMIN 200, and access-token blacklist after logout
 
 Test strategy:
 
@@ -650,6 +710,7 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Internship records now track `updatedAt`, so APIs can expose and sort by last modified time.
 - Internship status changes are now guarded by backend transition rules instead of trusting the frontend to set any enum value.
 - Successful internship status changes are recorded in `internship_status_history` so the workflow is auditable.
+- Reminders were added as user-scoped workflow records linked to internships, with ownership checks before create/query/cancel.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was first implemented by deleting the stored refresh token hash.
 - Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
@@ -668,9 +729,9 @@ Recommended next steps:
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
 
-2. Add Reminder system.
-   - Create reminders for OA deadlines, interviews, offer deadlines, and follow-ups.
-   - Use status history and internship timestamps to drive reminder rules.
+2. Add automatic reminder scanning and notifications.
+   - Use `@Scheduled` to find due `PENDING` reminders.
+   - Later connect email or in-app notification delivery before marking reminders as `SENT`.
 
 3. Consider Redis caching only if a read-heavy endpoint appears.
    - Current Redis usage is for security state, not ordinary response caching.

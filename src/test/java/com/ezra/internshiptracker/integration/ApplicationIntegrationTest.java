@@ -112,6 +112,22 @@ class ApplicationIntegrationTest {
         assertThat(statusHistory.at("/data/0/toStatus").asText()).isEqualTo("ONLINE_ASSESSMENT");
         assertThat(statusHistory.at("/data/0/note").asText()).isEqualTo("Received OA");
 
+        JsonNode createdReminder = post("/api/reminders", """
+                {
+                  "internshipId": %d,
+                  "message": "OA due tomorrow",
+                  "remindAt": "2027-01-02T10:00:00"
+                }
+                """.formatted(internshipId), userToken, 200);
+        long reminderId = createdReminder.at("/data/id").asLong();
+        assertThat(createdReminder.at("/data/status").asText()).isEqualTo("PENDING");
+
+        JsonNode pendingReminders = get("/api/reminders?status=PENDING", userToken, 200);
+        assertThat(containsId(pendingReminders.at("/data"), reminderId)).isTrue();
+
+        JsonNode cancelledReminder = put("/api/reminders/" + reminderId + "/cancel", "", userToken, 200);
+        assertThat(cancelledReminder.at("/data/status").asText()).isEqualTo("CANCELLED");
+
         JsonNode forbiddenAdminAccess = get("/api/admin/users", userToken, 403);
         assertThat(forbiddenAdminAccess.path("code").asInt()).isEqualTo(403);
 
@@ -171,11 +187,12 @@ class ApplicationIntegrationTest {
                 Integer.class
         );
 
-        assertThat(appliedMigrations).isGreaterThanOrEqualTo(7);
+        assertThat(appliedMigrations).isGreaterThanOrEqualTo(8);
         assertThat(tableExists("users")).isTrue();
         assertThat(tableExists("internships")).isTrue();
         assertThat(tableExists("refresh_tokens")).isTrue();
         assertThat(tableExists("internship_status_history")).isTrue();
+        assertThat(tableExists("reminders")).isTrue();
     }
 
     private boolean tableExists(String tableName) {

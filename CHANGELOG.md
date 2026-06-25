@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-06-25 - Reminder System Milestone
+
+### Added
+
+- Flyway migration `V8__create_reminders_table.sql`.
+- `Reminder` entity, `ReminderStatus` enum, and `ReminderRepository`.
+- `CreateReminderRequest` and `ReminderResponse` DTOs.
+- `ReminderService` for user-scoped create/query/cancel logic.
+- `ReminderController` with:
+  - `GET /api/reminders`
+  - `POST /api/reminders`
+  - `PUT /api/reminders/{id}/cancel`
+- `ReminderNotFoundException` mapped to unified `404` API responses.
+- Unit tests for reminder ownership, status filtering, and cancellation.
+- Controller tests for reminder APIs and validation errors.
+- Testcontainers integration coverage for reminder creation, pending query, and cancellation.
+- Apifox regression steps for create reminder, get pending reminders, and cancel reminder.
+
+### Changed
+
+- Integration tests now validate 8 Flyway migrations and the `reminders` table.
+- README documents reminder APIs and database table.
+
+### Verified
+
+- `./mvnw -Dtest=ReminderServiceTest,ReminderControllerTest,ApplicationIntegrationTest test` passes.
+- Testcontainers applies 8 Flyway migrations successfully.
+- `./mvnw test` passes.
+- 72 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - Internship Status History Milestone
 
 ### Added
