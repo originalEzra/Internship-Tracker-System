@@ -52,6 +52,7 @@ Implemented:
 - Query boundary tests for invalid status, invalid page type, page/size normalization, blank keyword, and sort fallback behavior
 - Enum-based internship status values: `DRAFT`, `APPLIED`, `ONLINE_ASSESSMENT`, `TECH_INTERVIEW`, `HR_INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN`
 - Backend-owned internship status transition rules
+- Status change history for internship workflow tracking
 - `updatedAt` tracking for internship records
 
 ## Authentication Flow
@@ -144,6 +145,7 @@ For this project size, a single `role` column is enough. If roles and permission
 | GET | `/api/internships/{id}` | Get current user's internship by id | Yes |
 | POST | `/api/internships` | Create internship for current user | Yes |
 | PUT | `/api/internships/{id}` | Update current user's internship | Yes |
+| GET | `/api/internships/{id}/status-history` | Get current user's internship status timeline | Yes |
 | DELETE | `/api/internships/{id}` | Delete current user's internship | Yes |
 
 `GET /api/internships` supports:
@@ -216,6 +218,38 @@ Invalid transitions return a unified `400` response:
   "code": 400,
   "message": "Cannot change internship status from DRAFT to OFFER",
   "data": null
+}
+```
+
+When a status change succeeds, the backend writes a status history row in the
+same transaction as the internship update. Editing other fields without changing
+the status does not create a history row.
+
+Status history endpoint:
+
+```http
+GET /api/internships/{id}/status-history
+Authorization: Bearer <token>
+```
+
+Example response:
+
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "internshipId": 10,
+      "fromStatus": "APPLIED",
+      "toStatus": "ONLINE_ASSESSMENT",
+      "operatorUserId": 1,
+      "operatorUsername": "ezra",
+      "note": "Received OA",
+      "createdAt": "2026-06-25T15:46:31"
+    }
+  ]
 }
 ```
 
@@ -330,6 +364,14 @@ V6__normalize_internship_status_machine.sql
 
 `V6` maps old `INTERVIEW` values to `TECH_INTERVIEW` so existing data stays compatible with the expanded status enum.
 
+Internship status history migration:
+
+```text
+V7__create_internship_status_history.sql
+```
+
+`V7` creates `internship_status_history`, which records each successful status change. History rows are deleted when their internship is deleted, and `operator_user_id` is set to null if the operator user is deleted.
+
 Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This means Flyway creates or migrates the schema, and Hibernate validates that the entity mappings match the database.
 
 ### users
@@ -356,6 +398,18 @@ Hibernate is configured with `ddl-auto=validate` in dev/test profiles. This mean
 | created_at | Creation time |
 | updated_at | Last update time |
 | user_id | Foreign key to users.id |
+
+### internship_status_history
+
+| Column | Description |
+| --- | --- |
+| id | Primary key |
+| internship_id | Foreign key to internships.id |
+| from_status | Previous internship status |
+| to_status | New internship status |
+| operator_user_id | User who changed the status |
+| note | Optional status-change note |
+| created_at | Status-change time |
 
 ## Configuration
 
@@ -595,6 +649,7 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Internship status was changed from free-form text to an enum to avoid inconsistent values such as `Applied` and `Interview`.
 - Internship records now track `updatedAt`, so APIs can expose and sort by last modified time.
 - Internship status changes are now guarded by backend transition rules instead of trusting the frontend to set any enum value.
+- Successful internship status changes are recorded in `internship_status_history` so the workflow is auditable.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was first implemented by deleting the stored refresh token hash.
 - Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
@@ -613,9 +668,9 @@ Recommended next steps:
    - Require longer passwords or mixed character types.
    - Return clear validation messages for weak passwords.
 
-2. Add internship status history.
-   - Record status changes for audit-style timelines.
-   - Store operator user, previous status, next status, timestamp, and optional note.
+2. Add Reminder system.
+   - Create reminders for OA deadlines, interviews, offer deadlines, and follow-ups.
+   - Use status history and internship timestamps to drive reminder rules.
 
 3. Consider Redis caching only if a read-heavy endpoint appears.
    - Current Redis usage is for security state, not ordinary response caching.

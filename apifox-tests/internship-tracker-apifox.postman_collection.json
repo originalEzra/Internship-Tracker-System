@@ -588,7 +588,7 @@
         "url": "{{baseUrl}}/api/internships/{{internshipId}}",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"ONLINE_ASSESSMENT\",\n  \"applicationUrl\": \"https://example.com/job-updated\"\n}"
+          "raw": "{\n  \"company\": \"Apifox Company Updated\",\n  \"position\": \"Backend Intern Updated\",\n  \"location\": \"Melbourne\",\n  \"status\": \"ONLINE_ASSESSMENT\",\n  \"applicationUrl\": \"https://example.com/job-updated\",\n  \"statusNote\": \"Received OA\"\n}"
         }
       },
       "event": [
@@ -614,7 +614,44 @@
       ]
     },
     {
-      "name": "12.1 Invalid Status Transition Should Return 400",
+      "name": "12.1 Get Status History",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/internships/{{internshipId}}/status-history"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('status history records successful transition', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data).to.be.an('array');",
+              "  pm.expect(json.data.length).to.be.greaterThan(0);",
+              "  const history = json.data[0];",
+              "  pm.expect(history.internshipId).to.eql(Number(pm.collectionVariables.get('internshipId')));",
+              "  pm.expect(history.fromStatus).to.eql('APPLIED');",
+              "  pm.expect(history.toStatus).to.eql('ONLINE_ASSESSMENT');",
+              "  pm.expect(history.note).to.eql('Received OA');",
+              "  pm.expect(history.operatorUserId).to.eql(Number(pm.collectionVariables.get('userId')));",
+              "  pm.expect(history.createdAt).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12.2 Invalid Status Transition Should Return 400",
       "request": {
         "method": "PUT",
         "header": [

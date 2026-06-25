@@ -2,6 +2,7 @@ package com.ezra.internshiptracker.controller;
 
 import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
+import com.ezra.internshiptracker.dto.internship.InternshipStatusHistoryResponse;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
 import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
@@ -14,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.Mockito.verify;
@@ -101,6 +103,34 @@ class InternshipControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("Invalid request parameter"));
+    }
+
+    @Test
+    void getStatusHistoryReturnsCurrentUsersTimeline() throws Exception {
+        InternshipStatusHistoryResponse history = new InternshipStatusHistoryResponse();
+        history.setId(99L);
+        history.setInternshipId(10L);
+        history.setFromStatus(InternshipStatus.APPLIED);
+        history.setToStatus(InternshipStatus.ONLINE_ASSESSMENT);
+        history.setOperatorUserId(1L);
+        history.setOperatorUsername("ezra");
+        history.setNote("Received OA");
+        history.setCreatedAt(LocalDateTime.of(2026, 1, 2, 9, 0));
+
+        when(internshipService.getMyInternshipStatusHistory(10L, 1L))
+                .thenReturn(List.of(history));
+
+        mockMvc.perform(get("/api/internships/10/status-history")
+                        .principal(new TestingAuthenticationToken("1", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data[0].id").value(99))
+                .andExpect(jsonPath("$.data[0].internshipId").value(10))
+                .andExpect(jsonPath("$.data[0].fromStatus").value("APPLIED"))
+                .andExpect(jsonPath("$.data[0].toStatus").value("ONLINE_ASSESSMENT"))
+                .andExpect(jsonPath("$.data[0].operatorUserId").value(1))
+                .andExpect(jsonPath("$.data[0].operatorUsername").value("ezra"))
+                .andExpect(jsonPath("$.data[0].note").value("Received OA"));
     }
 
     @Test

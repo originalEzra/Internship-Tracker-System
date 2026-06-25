@@ -3,13 +3,16 @@ package com.ezra.internshiptracker.service;
 import com.ezra.internshiptracker.dto.PageResponse;
 import com.ezra.internshiptracker.dto.internship.CreateInternshipRequest;
 import com.ezra.internshiptracker.dto.internship.InternshipResponse;
+import com.ezra.internshiptracker.dto.internship.InternshipStatusHistoryResponse;
 import com.ezra.internshiptracker.dto.internship.UpdateInternshipRequest;
 import com.ezra.internshiptracker.entity.Internship;
 import com.ezra.internshiptracker.entity.InternshipStatus;
+import com.ezra.internshiptracker.entity.InternshipStatusHistory;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
 import com.ezra.internshiptracker.exception.InvalidInternshipStatusTransitionException;
 import com.ezra.internshiptracker.repository.InternshipRepository;
+import com.ezra.internshiptracker.repository.InternshipStatusHistoryRepository;
 import com.ezra.internshiptracker.repository.UserRepository;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.PageImpl;
@@ -30,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +41,9 @@ class InternshipServiceTest {
 
     @Mock
     private InternshipRepository internshipRepository;
+
+    @Mock
+    private InternshipStatusHistoryRepository statusHistoryRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -178,17 +185,75 @@ class InternshipServiceTest {
         Internship internship = internship();
         LocalDateTime previousUpdatedAt = LocalDateTime.of(2026, 1, 1, 12, 0);
         internship.setUpdatedAt(previousUpdatedAt);
+        User user = user();
 
         when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
         when(internshipRepository.save(internship)).thenReturn(internship);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
 
-        InternshipResponse response = internshipService.updateInternship(10L, updateRequest(), 1L);
+        UpdateInternshipRequest request = updateRequest();
+        request.setStatusNote("Received OA");
+
+        InternshipResponse response = internshipService.updateInternship(10L, request, 1L);
 
         assertThat(response.getCompany()).isEqualTo("Anthropic");
         assertThat(response.getPosition()).isEqualTo("Backend Intern");
         assertThat(response.getStatus()).isEqualTo(InternshipStatus.ONLINE_ASSESSMENT);
         assertThat(response.getUpdatedAt()).isAfter(previousUpdatedAt);
         verify(internshipRepository).findByIdAndUserId(10L, 1L);
+
+        ArgumentCaptor<InternshipStatusHistory> historyCaptor =
+                ArgumentCaptor.forClass(InternshipStatusHistory.class);
+        verify(statusHistoryRepository).save(historyCaptor.capture());
+
+        InternshipStatusHistory history = historyCaptor.getValue();
+        assertThat(history.getInternship()).isSameAs(internship);
+        assertThat(history.getFromStatus()).isEqualTo(InternshipStatus.APPLIED);
+        assertThat(history.getToStatus()).isEqualTo(InternshipStatus.ONLINE_ASSESSMENT);
+        assertThat(history.getOperator()).isSameAs(user);
+        assertThat(history.getNote()).isEqualTo("Received OA");
+        assertThat(history.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    void getMyInternshipStatusHistoryRequiresOwnershipAndMapsRows() {
+        Internship internship = internship();
+        User user = user();
+        internship.setUser(user);
+
+        InternshipStatusHistory history = new InternshipStatusHistory();
+        history.setId(99L);
+        history.setInternship(internship);
+        history.setFromStatus(InternshipStatus.APPLIED);
+        history.setToStatus(InternshipStatus.ONLINE_ASSESSMENT);
+        history.setOperator(user);
+        history.setNote("Received OA");
+        history.setCreatedAt(LocalDateTime.of(2026, 1, 2, 9, 0));
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+        when(statusHistoryRepository.findByInternshipIdAndInternshipUserIdOrderByCreatedAtAsc(10L, 1L))
+                .thenReturn(List.of(history));
+
+        List<InternshipStatusHistoryResponse> response =
+                internshipService.getMyInternshipStatusHistory(10L, 1L);
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).getId()).isEqualTo(99L);
+        assertThat(response.get(0).getInternshipId()).isEqualTo(10L);
+        assertThat(response.get(0).getFromStatus()).isEqualTo(InternshipStatus.APPLIED);
+        assertThat(response.get(0).getToStatus()).isEqualTo(InternshipStatus.ONLINE_ASSESSMENT);
+        assertThat(response.get(0).getOperatorUserId()).isEqualTo(1L);
+        assertThat(response.get(0).getOperatorUsername()).isEqualTo("ezra");
+        assertThat(response.get(0).getNote()).isEqualTo("Received OA");
+    }
+
+    @Test
+    void getMyInternshipStatusHistoryThrowsWhenInternshipDoesNotBelongToCurrentUser() {
+        when(internshipRepository.findByIdAndUserId(10L, 2L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> internshipService.getMyInternshipStatusHistory(10L, 2L))
+                .isInstanceOf(InternshipNotFoundException.class)
+                .hasMessage("Internship not found");
     }
 
     @Test
@@ -220,6 +285,7 @@ class InternshipServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(InternshipStatus.APPLIED);
         assertThat(response.getCompany()).isEqualTo("Anthropic");
+        verify(statusHistoryRepository, never()).save(any(InternshipStatusHistory.class));
     }
 
     @Test
@@ -274,7 +340,15 @@ class InternshipServiceTest {
         internship.setApplicationUrl("https://example.com");
         internship.setCreatedAt(LocalDateTime.of(2026, 1, 1, 10, 0));
         internship.setUpdatedAt(LocalDateTime.of(2026, 1, 1, 10, 0));
+        internship.setUser(user());
         return internship;
+    }
+
+    private User user() {
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("ezra");
+        return user;
     }
 
     private CreateInternshipRequest createRequest() {
