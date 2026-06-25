@@ -688,6 +688,116 @@
       ]
     },
     {
+      "name": "12.3 Create Reminder",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/reminders",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"internshipId\": {{internshipId}},\n  \"message\": \"OA due tomorrow\",\n  \"remindAt\": \"2099-01-02T10:00:00\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('create reminder success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.internshipId).to.eql(Number(pm.collectionVariables.get('internshipId')));",
+              "  pm.expect(json.data.message).to.eql('OA due tomorrow');",
+              "  pm.expect(json.data.status).to.eql('PENDING');",
+              "  pm.expect(json.data.remindAt).to.be.a('string');",
+              "  pm.collectionVariables.set('reminderId', json.data.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12.4 Get Pending Reminders",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/reminders?status=PENDING"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('pending reminders contain created reminder', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data).to.be.an('array');",
+              "  const reminderId = Number(pm.collectionVariables.get('reminderId'));",
+              "  const reminder = json.data.find(item => item.id === reminderId);",
+              "  pm.expect(reminder).to.not.eql(undefined);",
+              "  pm.expect(reminder.status).to.eql('PENDING');",
+              "  pm.expect(reminder.company).to.eql('Apifox Company Updated');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12.5 Cancel Reminder",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/reminders/{{reminderId}}/cancel"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('cancel reminder success', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.id).to.eql(Number(pm.collectionVariables.get('reminderId')));",
+              "  pm.expect(json.data.status).to.eql('CANCELLED');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
       "name": "13 Delete Own Internship",
       "request": {
         "method": "DELETE",
