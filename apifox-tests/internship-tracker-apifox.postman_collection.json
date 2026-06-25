@@ -768,7 +768,42 @@
       ]
     },
     {
-      "name": "12.5 Cancel Reminder",
+      "name": "12.5 Get Assistant Advice",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{token}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/assistant/internships/{{internshipId}}/advice"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('assistant advice includes assessment and reminder suggestions', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const json = pm.response.json();",
+              "  pm.expect(json.code).to.eql(200);",
+              "  pm.expect(json.data.status).to.eql('ONLINE_ASSESSMENT');",
+              "  pm.expect(json.data.internshipId).to.eql(Number(pm.collectionVariables.get('internshipId')));",
+              "  pm.expect(json.data.summary).to.include('online assessment');",
+              "  pm.expect(json.data.suggestions).to.be.an('array');",
+              "  const suggestions = json.data.suggestions.join(' ').toLowerCase();",
+              "  pm.expect(suggestions).to.include('online assessment');",
+              "  pm.expect(suggestions).to.include('pending reminder');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12.6 Cancel Reminder",
       "request": {
         "method": "PUT",
         "header": [

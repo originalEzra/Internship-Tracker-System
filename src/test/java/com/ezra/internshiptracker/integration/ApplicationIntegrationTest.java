@@ -125,6 +125,11 @@ class ApplicationIntegrationTest {
         JsonNode pendingReminders = get("/api/reminders?status=PENDING", userToken, 200);
         assertThat(containsId(pendingReminders.at("/data"), reminderId)).isTrue();
 
+        JsonNode advice = get("/api/assistant/internships/" + internshipId + "/advice", userToken, 200);
+        assertThat(advice.at("/data/status").asText()).isEqualTo("ONLINE_ASSESSMENT");
+        assertThat(containsSuggestion(advice.at("/data/suggestions"), "online assessment")).isTrue();
+        assertThat(containsSuggestion(advice.at("/data/suggestions"), "pending reminder")).isTrue();
+
         JsonNode cancelledReminder = put("/api/reminders/" + reminderId + "/cancel", "", userToken, 200);
         assertThat(cancelledReminder.at("/data/status").asText()).isEqualTo("CANCELLED");
 
@@ -166,6 +171,15 @@ class ApplicationIntegrationTest {
     private boolean containsId(JsonNode items, long id) {
         for (JsonNode item : items) {
             if (item.path("id").asLong() == id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsSuggestion(JsonNode suggestions, String text) {
+        for (JsonNode suggestion : suggestions) {
+            if (suggestion.asText().contains(text)) {
                 return true;
             }
         }

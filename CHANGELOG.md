@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-06-25 - Rule-Based Assistant and Reminder Scheduler Milestone
+
+### Added
+
+- Rule-based assistant module for internship workflow suggestions.
+- `AssistantAdviceResponse` DTO.
+- `AssistantService` using internship status, `updatedAt`, and pending reminders.
+- `GET /api/assistant/internships/{id}/advice` endpoint.
+- Scheduled reminder scanner using `@Scheduled`.
+- `ReminderScheduler` with `reminder.scheduler.enabled` and `reminder.scheduler.fixed-delay-ms` configuration.
+- Reminder service logic to mark due `PENDING` reminders as `SENT`.
+- Unit tests for assistant advice rules and ownership checks.
+- Controller tests for assistant API response and not-found handling.
+- Scheduler test for the scheduled entry point.
+- Testcontainers integration coverage for assistant advice after reminder creation.
+
+### Changed
+
+- Test profile disables the live scheduler to keep integration tests deterministic.
+- README documents assistant advice, scheduler configuration, and updated test coverage.
+- Apifox regression collection now includes assistant advice before reminder cancellation.
+
+### Verified
+
+- `./mvnw -Dtest=AssistantServiceTest,AssistantControllerTest,ReminderServiceTest,ReminderSchedulerTest,ApplicationIntegrationTest test` passes.
+- `./mvnw test` passes.
+- 81 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - Reminder System Milestone
 
 ### Added

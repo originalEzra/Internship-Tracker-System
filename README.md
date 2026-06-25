@@ -20,7 +20,7 @@ Spring Boot backend for tracking internship applications with JWT authentication
 
 ## Current Milestone
 
-This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, status workflow tracking, and reminder system milestone.
+This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, status workflow tracking, reminder system, scheduled reminder processing, and rule-based assistant milestone.
 
 Implemented:
 
@@ -54,7 +54,23 @@ Implemented:
 - Backend-owned internship status transition rules
 - Status change history for internship workflow tracking
 - User-scoped reminders for OA deadlines, interviews, offer deadlines, and follow-ups
+- Scheduled due-reminder processing with `@Scheduled`
+- Rule-based assistant advice for follow-up, interview preparation, and reminder risk warnings
 - `updatedAt` tracking for internship records
+
+## Core Modules
+
+| Module | Purpose |
+| --- | --- |
+| Authentication | Register, login, JWT access token, refresh token, logout |
+| Authorization | Current-user APIs, user-scoped internships, lightweight `USER` / `ADMIN` RBAC |
+| Security hardening | Redis access-token blacklist and Redis login failure rate limiting |
+| Internship workflow | CRUD, pagination, filtering, search, sorting, `updatedAt` |
+| Status machine | Backend-owned legal status transitions |
+| Status history | Audit-style timeline for status changes |
+| Reminders | User-scoped reminders for OA, interview, offer deadline, and follow-up tasks |
+| Assistant | Rule-based advice generated from status, timestamps, and reminder data |
+| Engineering | Flyway migrations, Docker Compose, Testcontainers, Apifox regression tests, GitHub Actions CI |
 
 ## Authentication Flow
 
@@ -149,6 +165,38 @@ For this project size, a single `role` column is enough. If roles and permission
 | GET | `/api/internships/{id}/status-history` | Get current user's internship status timeline | Yes |
 | DELETE | `/api/internships/{id}` | Delete current user's internship | Yes |
 
+`GET /api/internships` supports:
+
+| Query Parameter | Description | Example |
+| --- | --- | --- |
+| `page` | Zero-based page number. Negative values are treated as `0`. | `0` |
+| `size` | Page size. Values below `1` become `1`; values above `100` become `100`. | `10` |
+| `status` | Optional internship status filter. Invalid enum values return `400`. | `APPLIED` |
+| `keyword` | Optional search keyword for company or position. Blank values are treated as no search. | `google` |
+| `sort` | Sort field and direction. Invalid sort fields fall back to `createdAt`. | `updatedAt,desc` |
+
+Allowed sort fields:
+
+- `createdAt`
+- `updatedAt`
+- `company`
+- `position`
+- `status`
+
+Allowed sort directions:
+
+- `asc`
+- `desc`
+
+Any direction other than `asc` is treated as `desc`.
+
+Example:
+
+```http
+GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=updatedAt,desc
+Authorization: Bearer <token>
+```
+
 ### Reminders
 
 | Method | Endpoint | Description | Auth |
@@ -187,36 +235,32 @@ Content-Type: application/json
 
 The backend verifies that `internshipId` belongs to the current user before creating the reminder. This prevents one user from creating or reading reminders for another user's internship.
 
-`GET /api/internships` supports:
+Due reminders are processed by a scheduled backend job. The current version marks due `PENDING` reminders as `SENT`, which creates a controlled extension point for future email or in-app notification delivery.
 
-| Query Parameter | Description | Example |
-| --- | --- | --- |
-| `page` | Zero-based page number. Negative values are treated as `0`. | `0` |
-| `size` | Page size. Values below `1` become `1`; values above `100` become `100`. | `10` |
-| `status` | Optional internship status filter. Invalid enum values return `400`. | `APPLIED` |
-| `keyword` | Optional search keyword for company or position. Blank values are treated as no search. | `google` |
-| `sort` | Sort field and direction. Invalid sort fields fall back to `createdAt`. | `updatedAt,desc` |
+### Assistant
 
-Allowed sort fields:
+| Method | Endpoint | Description | Auth |
+| --- | --- | --- | --- |
+| GET | `/api/assistant/internships/{id}/advice` | Generate rule-based advice for one of the current user's internships | Yes |
 
-- `createdAt`
-- `updatedAt`
-- `company`
-- `position`
-- `status`
+The first assistant version is rule-based rather than LLM-backed. It uses internship status, `updatedAt`, and pending reminder data to generate controlled and testable suggestions.
 
-Allowed sort directions:
+Example response:
 
-- `asc`
-- `desc`
-
-Any direction other than `asc` is treated as `desc`.
-
-Example:
-
-```http
-GET /api/internships?page=0&size=10&status=APPLIED&keyword=backend&sort=updatedAt,desc
-Authorization: Bearer <token>
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "internshipId": 10,
+    "status": "TECH_INTERVIEW",
+    "summary": "You are currently in the technical interview stage.",
+    "suggestions": [
+      "Prepare a 2-minute project introduction and review Java, Spring Boot, JWT, Redis, MySQL, and transaction questions.",
+      "No pending reminder was found for this stage. Add one for the assessment, interview, or offer deadline."
+    ]
+  }
+}
 ```
 
 ### Internship Status Machine
@@ -602,6 +646,13 @@ If you are running Redis from Docker Compose, also include:
 REDIS_HOST=localhost;REDIS_PORT=6380;LOGIN_MAX_FAILED_ATTEMPTS=5;LOGIN_RATE_LIMIT_WINDOW_MINUTES=15
 ```
 
+Reminder scheduler options:
+
+| Property | Environment Variable | Default | Description |
+| --- | --- | --- | --- |
+| `reminder.scheduler.enabled` | `REMINDER_SCHEDULER_ENABLED` | `true` | Enables the scheduled due-reminder scan |
+| `reminder.scheduler.fixed-delay-ms` | `REMINDER_SCHEDULER_FIXED_DELAY_MS` | `60000` | Delay between scheduler runs in milliseconds |
+
 The application starts on:
 
 ```text
@@ -645,6 +696,10 @@ Current backend test coverage:
 - `TokenBlacklistServiceTest`: Redis-backed access token blacklist key and TTL behavior
 - `LoginRateLimitServiceTest`: Redis-backed failed login counting, clearing, and lockout behavior
 - `AdminControllerTest`: admin response shape and password hiding
+- `AssistantServiceTest`: rule-based advice for follow-up, assessment, interview, offer, reminder risk, and ownership checks
+- `AssistantControllerTest`: assistant API response shape and not-found handling
+- `ReminderServiceTest`: reminder ownership, status filtering, cancellation, and due-reminder processing
+- `ReminderSchedulerTest`: scheduled job delegates to reminder processing
 - `ApplicationIntegrationTest`: real MySQL and Redis containers, Flyway migration, register/login, JWT-protected internship APIs, reminder APIs, USER 403, ADMIN 200, and access-token blacklist after logout
 
 Test strategy:
@@ -684,6 +739,11 @@ The collection covers:
 - create internship
 - get current user's internships with pagination, status filter, keyword search, and sorting by `updatedAt`
 - update own internship
+- get status history
+- create reminder
+- get pending reminders
+- get assistant advice for the internship
+- cancel reminder
 - delete own internship
 - no-token 401
 - duplicate register 400
@@ -711,6 +771,8 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 - Internship status changes are now guarded by backend transition rules instead of trusting the frontend to set any enum value.
 - Successful internship status changes are recorded in `internship_status_history` so the workflow is auditable.
 - Reminders were added as user-scoped workflow records linked to internships, with ownership checks before create/query/cancel.
+- Due reminders are scanned by a backend scheduler and marked as `SENT`, creating a later extension point for email or in-app notifications.
+- Rule-based assistant advice was added on top of status, timestamps, and pending reminders, so the project now gives workflow suggestions instead of only storing records.
 - Refresh tokens were added so access tokens can stay short-lived while users can still continue a session.
 - Logout was first implemented by deleting the stored refresh token hash.
 - Redis access-token blacklist was added so logout can also invalidate the current access token before its natural JWT expiration.
@@ -725,14 +787,17 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 
 Recommended next steps:
 
-1. Add stronger password validation.
-   - Require longer passwords or mixed character types.
-   - Return clear validation messages for weak passwords.
+1. Add real notification delivery for reminders.
+   - Keep the current scheduler as the scanner.
+   - Add email or in-app notification delivery before or after marking reminders as `SENT`.
 
-2. Add automatic reminder scanning and notifications.
-   - Use `@Scheduled` to find due `PENDING` reminders.
-   - Later connect email or in-app notification delivery before marking reminders as `SENT`.
+2. Improve assistant output.
+   - Add more business rules for follow-up timing and interview preparation.
+   - Later pass structured internship context to an LLM if a real AI integration is needed.
 
 3. Consider Redis caching only if a read-heavy endpoint appears.
    - Current Redis usage is for security state, not ordinary response caching.
    - Caching `/api/users/me` or small lookup data is optional and should be added only when it solves a real performance problem.
+
+4. Add stronger password validation if product requirements need it.
+   - This is useful for correctness, but lower interview value than workflow, testing, Redis, and deployment work.
