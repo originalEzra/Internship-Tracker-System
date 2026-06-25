@@ -50,6 +50,13 @@ public class GlobalExceptionHandler {
         return error(404, e.getMessage());
     }
 
+    @ExceptionHandler(NotificationNotFoundException.class)
+    public ResponseEntity<ApiResponse<String>> handleNotificationNotFound(
+            NotificationNotFoundException e
+    ) {
+        return error(404, e.getMessage());
+    }
+
     @ExceptionHandler(InvalidInternshipStatusTransitionException.class)
     public ResponseEntity<ApiResponse<String>> handleInvalidInternshipStatusTransitionException(
             InvalidInternshipStatusTransitionException e

@@ -3,6 +3,7 @@ package com.ezra.internshiptracker.integration;
 import com.ezra.internshiptracker.entity.Role;
 import com.ezra.internshiptracker.entity.User;
 import com.ezra.internshiptracker.repository.UserRepository;
+import com.ezra.internshiptracker.service.ReminderService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,9 @@ class ApplicationIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ReminderService reminderService;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -130,7 +134,37 @@ class ApplicationIntegrationTest {
         assertThat(containsSuggestion(advice.at("/data/suggestions"), "online assessment")).isTrue();
         assertThat(containsSuggestion(advice.at("/data/suggestions"), "pending reminder")).isTrue();
 
-        JsonNode cancelledReminder = put("/api/reminders/" + reminderId + "/cancel", "", userToken, 200);
+        markReminderAsDue(reminderId);
+        int processedReminders = reminderService.markDueRemindersAsSent(java.time.LocalDateTime.now());
+        assertThat(processedReminders).isEqualTo(1);
+
+        JsonNode unreadNotifications = get("/api/notifications?unreadOnly=true", userToken, 200);
+        JsonNode reminderNotification = findBySourceId(unreadNotifications.at("/data"), reminderId);
+        assertThat(reminderNotification).isNotNull();
+        assertThat(reminderNotification.path("type").asText()).isEqualTo("REMINDER_DUE");
+        assertThat(reminderNotification.path("sourceType").asText()).isEqualTo("REMINDER");
+        assertThat(reminderNotification.path("read").asBoolean()).isFalse();
+        assertThat(reminderNotification.path("content").asText()).contains("OA due tomorrow");
+
+        JsonNode readNotification = put(
+                "/api/notifications/" + reminderNotification.path("id").asLong() + "/read",
+                "",
+                userToken,
+                200
+        );
+        assertThat(readNotification.at("/data/read").asBoolean()).isTrue();
+        assertThat(readNotification.at("/data/readAt").asText()).isNotBlank();
+
+        JsonNode reminderToCancel = post("/api/reminders", """
+                {
+                  "internshipId": %d,
+                  "message": "Interview prep",
+                  "remindAt": "2027-01-03T10:00:00"
+                }
+                """.formatted(internshipId), userToken, 200);
+        long reminderToCancelId = reminderToCancel.at("/data/id").asLong();
+
+        JsonNode cancelledReminder = put("/api/reminders/" + reminderToCancelId + "/cancel", "", userToken, 200);
         assertThat(cancelledReminder.at("/data/status").asText()).isEqualTo("CANCELLED");
 
         JsonNode forbiddenAdminAccess = get("/api/admin/users", userToken, 403);
@@ -201,12 +235,29 @@ class ApplicationIntegrationTest {
                 Integer.class
         );
 
-        assertThat(appliedMigrations).isGreaterThanOrEqualTo(8);
+        assertThat(appliedMigrations).isGreaterThanOrEqualTo(9);
         assertThat(tableExists("users")).isTrue();
         assertThat(tableExists("internships")).isTrue();
         assertThat(tableExists("refresh_tokens")).isTrue();
         assertThat(tableExists("internship_status_history")).isTrue();
         assertThat(tableExists("reminders")).isTrue();
+        assertThat(tableExists("notifications")).isTrue();
+    }
+
+    private JsonNode findBySourceId(JsonNode items, long sourceId) {
+        for (JsonNode item : items) {
+            if (item.path("sourceId").asLong() == sourceId) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private void markReminderAsDue(long reminderId) {
+        jdbcTemplate.update(
+                "UPDATE reminders SET remind_at = CURRENT_TIMESTAMP(6) - INTERVAL 1 MINUTE WHERE id = ?",
+                reminderId
+        );
     }
 
     private boolean tableExists(String tableName) {

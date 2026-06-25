@@ -37,6 +37,9 @@ class ReminderServiceTest {
     @Mock
     private InternshipRepository internshipRepository;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ReminderService reminderService;
 
@@ -146,6 +149,7 @@ class ReminderServiceTest {
         assertThat(processed).isEqualTo(1);
         assertThat(dueReminder.getStatus()).isEqualTo(ReminderStatus.SENT);
         assertThat(dueReminder.getUpdatedAt()).isEqualTo(now);
+        verify(notificationService).createReminderDueNotification(dueReminder, now);
         verify(reminderRepository).saveAll(List.of(dueReminder));
     }
 
