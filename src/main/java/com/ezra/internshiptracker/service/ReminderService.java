@@ -20,10 +20,16 @@ public class ReminderService {
 
     private final ReminderRepository reminderRepository;
     private final InternshipRepository internshipRepository;
+    private final NotificationService notificationService;
 
-    public ReminderService(ReminderRepository reminderRepository, InternshipRepository internshipRepository) {
+    public ReminderService(
+            ReminderRepository reminderRepository,
+            InternshipRepository internshipRepository,
+            NotificationService notificationService
+    ) {
         this.reminderRepository = reminderRepository;
         this.internshipRepository = internshipRepository;
+        this.notificationService = notificationService;
     }
 
     public List<ReminderResponse> getMyReminders(Long userId, ReminderStatus status) {
@@ -74,6 +80,7 @@ public class ReminderService {
                 );
 
         dueReminders.forEach(reminder -> {
+            notificationService.createReminderDueNotification(reminder, now);
             reminder.setStatus(ReminderStatus.SENT);
             reminder.setUpdatedAt(now);
         });

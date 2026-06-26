@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-06-25 - In-App Notification Milestone
+
+### Added
+
+- Flyway migration `V9__create_notifications_table.sql`.
+- `Notification`, `NotificationType`, and `NotificationSourceType` entities/enums.
+- `NotificationRepository`.
+- `NotificationResponse` DTO.
+- `NotificationService` for current-user notification query and read marking.
+- `NotificationController` with:
+  - `GET /api/notifications`
+  - `GET /api/notifications?unreadOnly=true`
+  - `PUT /api/notifications/{id}/read`
+- `NotificationNotFoundException` mapped to unified `404` API responses.
+- Unit tests for notification query, read marking, ownership checks, and duplicate-source prevention.
+- Controller tests for notification APIs.
+- Testcontainers integration coverage for reminder-to-notification generation.
+- Apifox regression steps for notification query APIs.
+
+### Changed
+
+- Due reminder processing now creates a `REMINDER_DUE` notification before marking the reminder as `SENT`.
+- Reminder notification creation and reminder status update run in the same transaction.
+- Notifications use a unique `source_type + source_id` constraint to prevent duplicate generation for the same reminder.
+- README documents notification APIs, database table, testing scope, and Apifox scheduler limitation.
+
+### Verified
+
+- `./mvnw -Dtest=NotificationServiceTest,NotificationControllerTest,ReminderServiceTest,ApplicationIntegrationTest test` passes.
+- `./mvnw test` passes.
+- 89 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - Rule-Based Assistant and Reminder Scheduler Milestone
 
 ### Added
