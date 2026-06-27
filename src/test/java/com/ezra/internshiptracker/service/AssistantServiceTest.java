@@ -1,6 +1,8 @@
 package com.ezra.internshiptracker.service;
 
+import com.ezra.internshiptracker.config.AssistantLlmProperties;
 import com.ezra.internshiptracker.dto.assistant.AssistantAdviceResponse;
+import com.ezra.internshiptracker.dto.assistant.AssistantAdviceSource;
 import com.ezra.internshiptracker.entity.Internship;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.entity.Reminder;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -31,6 +34,12 @@ class AssistantServiceTest {
 
     @Mock
     private ReminderRepository reminderRepository;
+
+    @Mock
+    private AssistantLlmProperties assistantLlmProperties;
+
+    @Mock
+    private AssistantLlmClient assistantLlmClient;
 
     @InjectMocks
     private AssistantService assistantService;
@@ -51,6 +60,7 @@ class AssistantServiceTest {
 
         assertThat(response.getInternshipId()).isEqualTo(10L);
         assertThat(response.getStatus()).isEqualTo(InternshipStatus.APPLIED);
+        assertThat(response.getSource()).isEqualTo(AssistantAdviceSource.RULE_BASED);
         assertThat(response.getSummary()).contains("waiting for progress");
         assertThat(response.getSuggestions())
                 .anyMatch(suggestion -> suggestion.contains("follow-up"));
@@ -109,6 +119,59 @@ class AssistantServiceTest {
         assertThat(response.getSuggestions())
                 .anyMatch(suggestion -> suggestion.contains("offer deadline"))
                 .anyMatch(suggestion -> suggestion.contains("compensation"));
+    }
+
+    @Test
+    void llmAdviceIsUsedWhenEnabledAndConfigured() {
+        Internship internship = internship(InternshipStatus.TECH_INTERVIEW);
+        AssistantAdviceResponse llmAdvice = new AssistantAdviceResponse();
+        llmAdvice.setInternshipId(10L);
+        llmAdvice.setStatus(InternshipStatus.TECH_INTERVIEW);
+        llmAdvice.setSummary("LLM enhanced interview summary.");
+        llmAdvice.setSuggestions(List.of("Use the LLM enhanced checklist."));
+        llmAdvice.setSource(AssistantAdviceSource.LLM);
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+        when(reminderRepository.findByInternshipIdAndUserIdAndStatusOrderByRemindAtAsc(
+                10L,
+                1L,
+                ReminderStatus.PENDING
+        )).thenReturn(List.of());
+        when(assistantLlmProperties.isEnabled()).thenReturn(true);
+        when(assistantLlmProperties.hasApiKey()).thenReturn(true);
+        when(assistantLlmProperties.getProvider()).thenReturn("openai");
+        when(assistantLlmClient.generateAdvice(Mockito.eq(internship), Mockito.eq(List.of()), Mockito.any()))
+                .thenReturn(llmAdvice);
+
+        AssistantAdviceResponse response = assistantService.getAdvice(10L, 1L);
+
+        assertThat(response.getSource()).isEqualTo(AssistantAdviceSource.LLM);
+        assertThat(response.getSummary()).isEqualTo("LLM enhanced interview summary.");
+        assertThat(response.getSuggestions()).containsExactly("Use the LLM enhanced checklist.");
+    }
+
+    @Test
+    void llmFailureFallsBackToRuleBasedAdvice() {
+        Internship internship = internship(InternshipStatus.TECH_INTERVIEW);
+
+        when(internshipRepository.findByIdAndUserId(10L, 1L)).thenReturn(Optional.of(internship));
+        when(reminderRepository.findByInternshipIdAndUserIdAndStatusOrderByRemindAtAsc(
+                10L,
+                1L,
+                ReminderStatus.PENDING
+        )).thenReturn(List.of());
+        when(assistantLlmProperties.isEnabled()).thenReturn(true);
+        when(assistantLlmProperties.hasApiKey()).thenReturn(true);
+        when(assistantLlmProperties.getProvider()).thenReturn("openai");
+        when(assistantLlmClient.generateAdvice(Mockito.eq(internship), Mockito.eq(List.of()), Mockito.any()))
+                .thenThrow(new IllegalStateException("LLM unavailable"));
+
+        AssistantAdviceResponse response = assistantService.getAdvice(10L, 1L);
+
+        assertThat(response.getSource()).isEqualTo(AssistantAdviceSource.RULE_BASED);
+        assertThat(response.getSummary()).contains("technical interview");
+        assertThat(response.getSuggestions())
+                .anyMatch(suggestion -> suggestion.contains("Java"));
     }
 
     @Test

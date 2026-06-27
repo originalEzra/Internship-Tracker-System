@@ -790,6 +790,7 @@
               "  const json = pm.response.json();",
               "  pm.expect(json.code).to.eql(200);",
               "  pm.expect(json.data.status).to.eql('ONLINE_ASSESSMENT');",
+              "  pm.expect(json.data.source).to.eql('RULE_BASED');",
               "  pm.expect(json.data.internshipId).to.eql(Number(pm.collectionVariables.get('internshipId')));",
               "  pm.expect(json.data.summary).to.include('online assessment');",
               "  pm.expect(json.data.suggestions).to.be.an('array');",

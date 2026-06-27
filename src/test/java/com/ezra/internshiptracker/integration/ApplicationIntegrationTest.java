@@ -131,6 +131,7 @@ class ApplicationIntegrationTest {
 
         JsonNode advice = get("/api/assistant/internships/" + internshipId + "/advice", userToken, 200);
         assertThat(advice.at("/data/status").asText()).isEqualTo("ONLINE_ASSESSMENT");
+        assertThat(advice.at("/data/source").asText()).isEqualTo("RULE_BASED");
         assertThat(containsSuggestion(advice.at("/data/suggestions"), "online assessment")).isTrue();
         assertThat(containsSuggestion(advice.at("/data/suggestions"), "pending reminder")).isTrue();
 

@@ -1,6 +1,7 @@
 package com.ezra.internshiptracker.controller;
 
 import com.ezra.internshiptracker.dto.assistant.AssistantAdviceResponse;
+import com.ezra.internshiptracker.dto.assistant.AssistantAdviceSource;
 import com.ezra.internshiptracker.entity.InternshipStatus;
 import com.ezra.internshiptracker.exception.GlobalExceptionHandler;
 import com.ezra.internshiptracker.exception.InternshipNotFoundException;
@@ -44,6 +45,7 @@ class AssistantControllerTest {
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.internshipId").value(10))
                 .andExpect(jsonPath("$.data.status").value("TECH_INTERVIEW"))
+                .andExpect(jsonPath("$.data.source").value("RULE_BASED"))
                 .andExpect(jsonPath("$.data.suggestions[0]").value("Prepare Java and Spring Boot questions."));
     }
 
@@ -65,6 +67,7 @@ class AssistantControllerTest {
         response.setStatus(InternshipStatus.TECH_INTERVIEW);
         response.setSummary("You are currently in the technical interview stage.");
         response.setSuggestions(List.of("Prepare Java and Spring Boot questions."));
+        response.setSource(AssistantAdviceSource.RULE_BASED);
         return response;
     }
 }

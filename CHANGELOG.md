@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-06-27 - Assistant LLM-Ready Milestone
+
+### Added
+
+- `assistant.llm.*` configuration for optional LLM enhancement.
+- `AssistantAdviceSource` to show whether advice came from `RULE_BASED` logic or `LLM`.
+- `AssistantLlmClient` abstraction.
+- `OpenAiAssistantLlmClient` using the OpenAI Responses API shape with `model` and `input`.
+- Service tests for LLM success and LLM failure fallback.
+
+### Changed
+
+- Assistant advice remains rule-based by default.
+- `GET /api/assistant/internships/{id}/advice` now returns `data.source`.
+- If LLM mode is enabled but the model call fails, `AssistantService` falls back to the deterministic rule-based response.
+- README and Apifox regression assertions now document `source`.
+
+### Verified
+
+- `./mvnw -Dtest=AssistantServiceTest,AssistantControllerTest,ApplicationIntegrationTest test` passes.
+- `./mvnw test` passes.
+- 91 backend tests run successfully with 0 failures.
+
 ## 2026-06-25 - In-App Notification Milestone
 
 ### Added
