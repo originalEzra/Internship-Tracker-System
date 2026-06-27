@@ -1,6 +1,48 @@
-# Internship Tracker Backend
+# Internship Application Management & AI Assistant
 
-Spring Boot backend for tracking internship applications with JWT authentication, current-user authorization, and user-scoped internship APIs.
+A Spring Boot backend for managing the internship application workflow.
+
+The project is not just a CRUD tracker. It models a real job-search process: user authentication, role-based access control, user data isolation, internship applications, status transitions, status history, reminders, in-app notifications, Redis-backed security hardening, and assistant advice.
+
+## Project Positioning
+
+This project is designed as an interview-ready Java backend project:
+
+- It has a clear business domain: internship application workflow management.
+- It includes security and authorization concerns that are common in real systems.
+- It has business rules beyond CRUD, especially the status machine and reminder-to-notification flow.
+- It is reproducible with Docker Compose, Flyway, Testcontainers, and GitHub Actions.
+- It has a README and regression test assets that explain how to run, test, and discuss the project.
+
+One-sentence introduction:
+
+> A Spring Boot based internship application workflow system with JWT authentication, RBAC, user data isolation, status tracking, reminders, notifications, Redis-backed security hardening, and an AI-assistant-ready advice module.
+
+## Interview-Ready Scope
+
+The current version is the recommended interview baseline. The goal is not to keep adding unrelated features, but to keep the system stable, testable, and explainable.
+
+Completed core capabilities:
+
+1. JWT authentication and refresh-token based session renewal
+2. Lightweight RBAC with `USER` and `ADMIN`
+3. Current-user data isolation
+4. Internship CRUD with pagination, filtering, keyword search, and sorting
+5. Backend-owned internship status machine
+6. Internship status change history
+7. Reminder system
+8. In-app notification flow generated from due reminders
+9. Redis login rate limiting and JWT access-token blacklist
+10. Rule-based AI Assistant with optional LLM-ready provider abstraction
+11. Flyway migrations, Testcontainers integration tests, GitHub Actions CI, and Docker Compose local infrastructure
+
+Recommended interview focus:
+
+- Explain the JWT authentication chain and why the JWT subject is `userId`.
+- Explain how RBAC turns `USER` / `ADMIN` into Spring Security authorities.
+- Explain why Redis is used for security state instead of ordinary caching first.
+- Explain why a status machine and status history are stronger than a plain `status` field.
+- Explain how Testcontainers, GitHub Actions, Flyway, and Docker Compose make the project reproducible.
 
 ## Tech Stack
 
@@ -18,47 +60,6 @@ Spring Boot backend for tracking internship applications with JWT authentication
 - Apifox regression tests
 - Testcontainers MySQL and Redis integration tests
 
-## Current Milestone
-
-This version completes the authentication, refresh token, logout, role-based authorization, user isolation, database migration, internship query, Redis-backed auth hardening, status workflow tracking, reminder system, scheduled reminder processing, in-app notification, and rule-based assistant milestone.
-
-Implemented:
-
-- User registration and login
-- BCrypt password hashing
-- JWT stateless authentication
-- JWT subject based on `userId`
-- Refresh token issuing, storage, refresh, and logout
-- Redis-backed access token blacklist on logout
-- Redis-backed login failure rate limiting
-- Lightweight RBAC with `USER` and `ADMIN` roles
-- Admin-only user listing API
-- `/api/users/me` current-user endpoints
-- Password update with old password verification
-- Internship CRUD scoped to the authenticated user
-- No frontend-controlled `userId` in internship APIs
-- Duplicate username/email checks
-- Database unique constraints for username and email
-- Unified API response format
-- Global exception handling
-- 401 response for unauthenticated requests
-- Apifox regression collection covering the full login and internship flow
-- JUnit and Mockito backend tests for authentication, services, controllers, and JWT filter behavior
-- Testcontainers integration test covering Flyway, JWT, JPA, MySQL, Redis, and RBAC in real containers
-- GitHub Actions CI for running backend tests on pushes and pull requests
-- Environment-based configuration with Spring profiles for development and testing
-- Flyway database migrations for users and internships schema management
-- Paginated, searchable, filterable, and sortable internship list API
-- Query boundary tests for invalid status, invalid page type, page/size normalization, blank keyword, and sort fallback behavior
-- Enum-based internship status values: `DRAFT`, `APPLIED`, `ONLINE_ASSESSMENT`, `TECH_INTERVIEW`, `HR_INTERVIEW`, `OFFER`, `REJECTED`, `WITHDRAWN`
-- Backend-owned internship status transition rules
-- Status change history for internship workflow tracking
-- User-scoped reminders for OA deadlines, interviews, offer deadlines, and follow-ups
-- Scheduled due-reminder processing with `@Scheduled`
-- In-app notifications generated from due reminders
-- Rule-based assistant advice for follow-up, interview preparation, and reminder risk warnings
-- `updatedAt` tracking for internship records
-
 ## Core Modules
 
 | Module | Purpose |
@@ -73,6 +74,74 @@ Implemented:
 | Notifications | In-app notification records generated from due reminders |
 | Assistant | Rule-based advice generated from status, timestamps, and reminder data, with optional LLM enhancement |
 | Engineering | Flyway migrations, Docker Compose, Testcontainers, Apifox regression tests, GitHub Actions CI |
+
+## High-Level Architecture
+
+```mermaid
+flowchart LR
+    Client["Client / Apifox"] --> Security["Spring Security Filter Chain"]
+    Security --> JwtFilter["JwtAuthenticationFilter"]
+    JwtFilter --> Redis["Redis<br/>token blacklist<br/>login limit"]
+    JwtFilter --> Context["SecurityContextHolder"]
+    Context --> Controllers["REST Controllers"]
+    Controllers --> Services["Service Layer<br/>business rules + transactions"]
+    Services --> Repositories["Spring Data JPA Repositories"]
+    Repositories --> MySQL["MySQL"]
+    Services --> Scheduler["Reminder Scheduler"]
+    Scheduler --> Notifications["Notification Flow"]
+```
+
+The controller layer does not trust user ids from the request body or URL. User identity comes from the authenticated JWT subject and `SecurityContextHolder`.
+
+## Business Workflow
+
+```mermaid
+flowchart TD
+    Register["Register user"] --> Login["Login"]
+    Login --> Jwt["Receive access token + refresh token"]
+    Jwt --> Create["Create internship"]
+    Create --> Status["Move through status machine"]
+    Status --> History["Write status history"]
+    Status --> Reminder["Create reminder"]
+    Reminder --> Scheduler["Scheduler scans due reminders"]
+    Scheduler --> Notification["Create in-app notification"]
+    Notification --> Read["User marks notification as read"]
+    Status --> Assistant["Assistant advice<br/>rule-based by default<br/>LLM-ready when configured"]
+```
+
+## Reminder-To-Notification Flow
+
+```mermaid
+flowchart TD
+    Pending["PENDING reminder<br/>remindAt <= now"] --> Tx["Transactional processing"]
+    Tx --> CreateNotification["Create notification"]
+    Tx --> MarkSent["Mark reminder as SENT"]
+    CreateNotification --> Unique["source_type + source_id unique constraint"]
+    Unique --> NoDuplicate["No duplicate notification for the same reminder"]
+```
+
+The notification flow is intentionally lightweight. Email delivery, WebSocket push, and MQ-based retries are future extensions rather than part of the interview-ready baseline.
+
+## Testing And Delivery Pipeline
+
+```mermaid
+flowchart LR
+    Dev["Local development"] --> Compose["Docker Compose<br/>MySQL + Redis"]
+    Dev --> Unit["Mockito unit tests"]
+    Dev --> MVC["MockMvc controller tests"]
+    Dev --> Integration["Testcontainers<br/>MySQL + Redis"]
+    Integration --> Flyway["Flyway migrations"]
+    Unit --> CI["GitHub Actions"]
+    MVC --> CI
+    Integration --> CI
+```
+
+The project uses different tools for different confidence levels:
+
+- Mockito tests verify service logic quickly.
+- MockMvc tests verify API response shape and exception mapping.
+- Testcontainers verifies the real Spring Boot + MySQL + Redis + Flyway + Security chain.
+- Apifox verifies the API from a client user's point of view.
 
 ## Authentication Flow
 
@@ -816,6 +885,120 @@ Apifox does not need to know about Testcontainers. Testcontainers is for backend
 
 Reminder-to-notification generation is fully verified by backend integration tests. The Apifox collection verifies notification query APIs, but does not force scheduler timing because reminder creation requires a future `remindAt`.
 
+## Interview Talking Points
+
+### 1. JWT Authentication Chain
+
+The login flow is intentionally stateless for access-token authentication:
+
+```text
+login
+-> validate username/password
+-> issue access token with userId as subject
+-> issue opaque refresh token
+-> store only refresh token hash
+-> later requests carry Authorization: Bearer <access-token>
+-> JwtAuthenticationFilter validates token
+-> filter creates Authentication
+-> SecurityContextHolder stores the current user
+```
+
+Why `userId` is used as JWT subject:
+
+- `username` can be updated.
+- `userId` is stable and database-backed.
+- The backend can always reload the current user and role by id.
+
+### 2. RBAC And Current-User Authorization
+
+RBAC is intentionally lightweight:
+
+```text
+users.role = USER | ADMIN
+```
+
+Spring Security receives authorities like:
+
+```text
+ROLE_USER
+ROLE_ADMIN
+```
+
+This is enough for the current project:
+
+- Normal users can only access their own profile, internships, reminders, and notifications.
+- Admin users can access admin-only endpoints such as `/api/admin/users`.
+- If the permission model grows later, this can evolve into `roles`, `permissions`, and `user_roles` tables.
+
+Current-user authorization is stricter than passing `userId` from the frontend. Internship, reminder, and notification queries are scoped by the authenticated user's id, for example:
+
+```text
+findByIdAndUserId(id, currentUserId)
+```
+
+This prevents a client from changing a request body or URL parameter to access another user's data.
+
+### 3. Redis Security Use Cases
+
+Redis is used for security state, not added as generic caching without a clear need.
+
+Access-token blacklist:
+
+```text
+logout
+-> delete refresh token hash from MySQL
+-> hash current access token
+-> store hash in Redis with TTL = token remaining lifetime
+-> JwtAuthenticationFilter rejects blacklisted access tokens
+```
+
+Login rate limiting:
+
+```text
+failed login
+-> increment Redis counter for username
+-> set TTL for the counting window
+-> return 429 when attempts exceed the limit
+-> clear counter after successful login
+```
+
+These two use cases fit Redis naturally because they are short-lived, fast-changing security records.
+
+### 4. Status Machine And Status History
+
+A plain `status` field lets the frontend submit any valid enum value. The backend status machine makes the workflow explicit:
+
+```text
+DRAFT -> APPLIED -> ONLINE_ASSESSMENT -> TECH_INTERVIEW -> HR_INTERVIEW -> OFFER
+```
+
+Invalid transitions such as `DRAFT -> OFFER` are rejected by the service layer.
+
+Status history records each successful transition:
+
+```text
+from_status
+to_status
+operator_user_id
+note
+created_at
+```
+
+The status update and history insert run in one transaction, so the current status and timeline stay consistent.
+
+### 5. Testcontainers, Flyway, GitHub Actions, And Docker Compose
+
+These tools solve different reproducibility problems:
+
+| Tool | What it proves |
+| --- | --- |
+| Flyway | Database schema is versioned and repeatable |
+| Docker Compose | A developer can start local MySQL and Redis consistently |
+| Testcontainers | Automated tests can run against real temporary MySQL and Redis |
+| GitHub Actions | The same backend test suite runs on every push/PR |
+
+This means the project is not only "working on my machine"; it can be started, tested, and reviewed by another developer.
+
 ## Important Problems Solved
 
 - Login was blocked by Spring Security before `/api/users/login` was properly permitted.
@@ -847,22 +1030,46 @@ Reminder-to-notification generation is fully verified by backend integration tes
 - Testcontainers was added so integration tests can run against temporary real MySQL and Redis containers instead of depending on a developer's local database.
 - Docker Compose was added so local development can start reproducible MySQL and Redis services without manually creating tables or relying on a developer-specific database setup.
 
-## Next Improvements
+## Interview-Ready Finish Line
 
-Recommended next steps:
+This project is intentionally considered interview-ready when the following are true:
 
-1. Add optional email delivery for reminders.
+- `./mvnw test` passes.
+- GitHub Actions is green.
+- `docker compose up -d mysql redis` can start local infrastructure.
+- Flyway can migrate the database from an empty schema.
+- The Apifox collection can run the core API flow against a running app.
+- README explains the project, architecture, APIs, tests, and tradeoffs.
+- The core technical points can be explained without reading the code line by line.
+
+At this stage, adding more features is less valuable than being able to explain the existing system clearly.
+
+## Future Improvements
+
+These are intentionally treated as future extensions rather than interview-baseline requirements:
+
+1. Optional email delivery for reminders
    - Keep the current scheduler as the scanner.
-   - Reuse the in-app notification as the durable record.
-   - Send email only after the notification is created successfully.
+   - Reuse in-app notifications as durable records.
+   - Add retry/error handling only when email delivery becomes a real requirement.
 
-2. Improve assistant output.
-   - Add more business rules for follow-up timing and interview preparation.
-   - Later pass structured internship context to an LLM if a real AI integration is needed.
+2. Real LLM API enhancement
+   - The provider abstraction already exists.
+   - A real API key can be injected through environment variables.
+   - Rule-based fallback should remain available for reliability and tests.
 
-3. Consider Redis caching only if a read-heavy endpoint appears.
-   - Current Redis usage is for security state, not ordinary response caching.
-   - Caching `/api/users/me` or small lookup data is optional and should be added only when it solves a real performance problem.
+3. SSE or WebSocket notification updates
+   - Useful if the frontend needs real-time notification delivery.
+   - Not necessary for the current backend-only interview version.
 
-4. Add stronger password validation if product requirements need it.
-   - This is useful for correctness, but lower interview value than workflow, testing, Redis, and deployment work.
+4. MQ-based async processing
+   - Useful if notification/email delivery becomes high volume or needs retry queues.
+   - Too heavy for the current project scope.
+
+5. Redis response caching
+   - Current Redis usage is for security state.
+   - Add ordinary caching only when a read-heavy endpoint appears.
+
+6. Stronger password validation
+   - Useful for product requirements.
+   - Lower interview value than security flow, workflow modeling, and test infrastructure.
