@@ -71,7 +71,7 @@ Implemented:
 | Status history | Audit-style timeline for status changes |
 | Reminders | User-scoped reminders for OA, interview, offer deadline, and follow-up tasks |
 | Notifications | In-app notification records generated from due reminders |
-| Assistant | Rule-based advice generated from status, timestamps, and reminder data |
+| Assistant | Rule-based advice generated from status, timestamps, and reminder data, with optional LLM enhancement |
 | Engineering | Flyway migrations, Docker Compose, Testcontainers, Apifox regression tests, GitHub Actions CI |
 
 ## Authentication Flow
@@ -262,9 +262,11 @@ PENDING reminder reaches remindAt
 
 | Method | Endpoint | Description | Auth |
 | --- | --- | --- | --- |
-| GET | `/api/assistant/internships/{id}/advice` | Generate rule-based advice for one of the current user's internships | Yes |
+| GET | `/api/assistant/internships/{id}/advice` | Generate assistant advice for one of the current user's internships | Yes |
 
-The first assistant version is rule-based rather than LLM-backed. It uses internship status, `updatedAt`, and pending reminder data to generate controlled and testable suggestions.
+The assistant is deterministic by default. It uses internship status, `updatedAt`, and pending reminder data to generate controlled and testable suggestions.
+
+An optional LLM mode can be enabled through environment variables. When enabled and configured, the service sends the rule-based context to an LLM provider and returns enhanced advice. If the LLM call fails or is not configured, the endpoint falls back to the rule-based response.
 
 Example response:
 
@@ -275,6 +277,7 @@ Example response:
   "data": {
     "internshipId": 10,
     "status": "TECH_INTERVIEW",
+    "source": "RULE_BASED",
     "summary": "You are currently in the technical interview stage.",
     "suggestions": [
       "Prepare a 2-minute project introduction and review Java, Spring Boot, JWT, Redis, MySQL, and transaction questions.",
@@ -580,6 +583,16 @@ Redis-backed auth hardening settings:
 | `LOGIN_MAX_FAILED_ATTEMPTS` | Failed login attempts allowed inside one window | `5` |
 | `LOGIN_RATE_LIMIT_WINDOW_MINUTES` | Login failure counting window in minutes | `15` |
 
+Assistant LLM settings:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `ASSISTANT_LLM_ENABLED` | Enables optional LLM enhancement for assistant advice | `false` |
+| `ASSISTANT_LLM_PROVIDER` | LLM provider name currently supported by the client | `openai` |
+| `ASSISTANT_LLM_API_KEY` | API key for the LLM provider. Leave empty to force rule-based fallback | empty |
+| `ASSISTANT_LLM_MODEL` | Model name used when LLM mode is enabled | `gpt-4.1-mini` |
+| `ASSISTANT_LLM_BASE_URL` | OpenAI Responses API endpoint | `https://api.openai.com/v1/responses` |
+
 Development profile database settings:
 
 | Variable | Description | Default |
@@ -740,8 +753,8 @@ Current backend test coverage:
 - `TokenBlacklistServiceTest`: Redis-backed access token blacklist key and TTL behavior
 - `LoginRateLimitServiceTest`: Redis-backed failed login counting, clearing, and lockout behavior
 - `AdminControllerTest`: admin response shape and password hiding
-- `AssistantServiceTest`: rule-based advice for follow-up, assessment, interview, offer, reminder risk, and ownership checks
-- `AssistantControllerTest`: assistant API response shape and not-found handling
+- `AssistantServiceTest`: rule-based advice, optional LLM enhancement, LLM fallback, reminder risk, and ownership checks
+- `AssistantControllerTest`: assistant API response shape, advice source, and not-found handling
 - `ReminderServiceTest`: reminder ownership, status filtering, cancellation, and due-reminder processing
 - `ReminderSchedulerTest`: scheduled job delegates to reminder processing
 - `NotificationServiceTest`: notification query, read marking, ownership checks, and duplicate-source prevention

@@ -1,5 +1,6 @@
 package com.ezra.internshiptracker.service;
 
+import com.ezra.internshiptracker.config.AssistantLlmProperties;
 import com.ezra.internshiptracker.dto.assistant.AssistantAdviceResponse;
 import com.ezra.internshiptracker.entity.Internship;
 import com.ezra.internshiptracker.entity.InternshipStatus;
@@ -20,10 +21,19 @@ public class AssistantService {
 
     private final InternshipRepository internshipRepository;
     private final ReminderRepository reminderRepository;
+    private final AssistantLlmProperties assistantLlmProperties;
+    private final AssistantLlmClient assistantLlmClient;
 
-    public AssistantService(InternshipRepository internshipRepository, ReminderRepository reminderRepository) {
+    public AssistantService(
+            InternshipRepository internshipRepository,
+            ReminderRepository reminderRepository,
+            AssistantLlmProperties assistantLlmProperties,
+            AssistantLlmClient assistantLlmClient
+    ) {
         this.internshipRepository = internshipRepository;
         this.reminderRepository = reminderRepository;
+        this.assistantLlmProperties = assistantLlmProperties;
+        this.assistantLlmClient = assistantLlmClient;
     }
 
     public AssistantAdviceResponse getAdvice(Long internshipId, Long userId) {
@@ -37,13 +47,32 @@ public class AssistantService {
                         ReminderStatus.PENDING
                 );
 
+        AssistantAdviceResponse ruleBasedAdvice = buildRuleBasedAdvice(internship, pendingReminders);
+
+        if (!shouldUseLlm()) {
+            return ruleBasedAdvice;
+        }
+
+        try {
+            return assistantLlmClient.generateAdvice(internship, pendingReminders, ruleBasedAdvice);
+        } catch (RuntimeException e) {
+            return ruleBasedAdvice;
+        }
+    }
+
+    private AssistantAdviceResponse buildRuleBasedAdvice(Internship internship, List<Reminder> pendingReminders) {
         AssistantAdviceResponse response = new AssistantAdviceResponse();
         response.setInternshipId(internship.getId());
         response.setStatus(internship.getStatus());
         response.setSummary(buildSummary(internship));
         response.setSuggestions(buildSuggestions(internship, pendingReminders));
-
         return response;
+    }
+
+    private boolean shouldUseLlm() {
+        return assistantLlmProperties.isEnabled()
+                && assistantLlmProperties.hasApiKey()
+                && "openai".equalsIgnoreCase(assistantLlmProperties.getProvider());
     }
 
     private String buildSummary(Internship internship) {

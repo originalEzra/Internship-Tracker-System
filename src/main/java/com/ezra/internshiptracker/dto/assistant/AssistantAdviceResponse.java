@@ -15,4 +15,6 @@ public class AssistantAdviceResponse {
     private String summary;
 
     private List<String> suggestions;
+
+    private AssistantAdviceSource source = AssistantAdviceSource.RULE_BASED;
 }
